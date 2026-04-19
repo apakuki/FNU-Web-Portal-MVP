@@ -1,10 +1,15 @@
 import asyncio
+import sys
 from logging.config import fileConfig
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import src.backend.db.models  # noqa: F401 — registers models with Base.metadata
 from src.backend.config import settings
 from src.backend.db.base import Base
 

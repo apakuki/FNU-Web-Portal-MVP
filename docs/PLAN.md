@@ -92,17 +92,17 @@ Implement the Postgres schema from docs/DATABASE.md, build JWT-based authenticat
 
 ### Substeps
 
-- [ ] Write Alembic migrations for all portal tables (users, sessions, applications, application_documents, offers, payment_attempts, payment_plans, chatbot_conversations, chatbot_knowledge, enquiries, kpi_definitions, kpi_values, notifications, audit_log)
-- [ ] Build SQLAlchemy models and Pydantic schemas for every table
-- [ ] Implement password hashing (bcrypt) and JWT issue/verify helpers in the backend
-- [ ] Implement `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`, `/api/auth/reset-password`
-- [ ] Implement role-based FastAPI dependency (`require_role("student")`, etc.)
-- [ ] Configure next-auth with a Credentials provider that calls `/api/auth/login`; store the returned JWT in an httpOnly session cookie
-- [ ] Build a shared frontend `apiFetch` helper that attaches the session token to backend calls
-- [ ] Build Next.js middleware that protects authenticated routes and redirects unauthenticated users to the login page
-- [ ] Implement password reset flow (token issued backend-side, email sent via stubbed sender)
-- [ ] Build seed command loading synthetic students, staff, admin, lecturer, finance users
-- [ ] Implement audit_log write helper (async, fire-and-forget) and use it from login/logout
+- [x] Write Alembic migrations for all portal tables (users, sessions, applications, application_documents, offers, payment_attempts, payment_plans, chatbot_conversations, chatbot_knowledge, enquiries, kpi_definitions, kpi_values, notifications, audit_log)
+- [x] Build SQLAlchemy models and Pydantic schemas for every table
+- [x] Implement password hashing (bcrypt) and JWT issue/verify helpers in the backend
+- [x] Implement `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`, `/api/auth/reset-password`
+- [x] Implement role-based FastAPI dependency (`require_role("student")`, etc.)
+- [x] Configure next-auth with a Credentials provider that calls `/api/auth/login`; store the returned JWT in an httpOnly session cookie
+- [x] Build a shared frontend `apiFetch` helper that attaches the session token to backend calls
+- [x] Build Next.js middleware that protects authenticated routes and redirects unauthenticated users to the login page
+- [x] Implement password reset flow (token issued backend-side, email sent via stubbed sender)
+- [x] Build seed command loading synthetic students, staff, admin, lecturer, finance users
+- [x] Implement audit_log write helper (async, fire-and-forget) and use it from login/logout
 
 ### Tests
 
