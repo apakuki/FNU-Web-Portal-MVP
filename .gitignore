@@ -1,0 +1,98 @@
+# ===== Secrets and environment =====
+.env
+.env.*
+!.env.example
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+*.mo
+*.pot
+*.log
+.venv
+env/
+venv/
+ENV/
+__pypackages__/
+celerybeat-schedule
+celerybeat.pid
+*.sage.py
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+.ruff_cache/
+.pypirc
+
+# ===== Node.js / Next.js =====
+node_modules/
+.next/
+out/
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+*.tsbuildinfo
+next-env.d.ts
+
+# ===== Generated types (committed, but regenerated from backend) =====
+# frontend/lib/api-types.ts is committed but regenerated via `npm run generate:types`
+
+# ===== Test output =====
+playwright-report/
+test-results/
+frontend/playwright-report/
+frontend/test-results/
+
+# ===== Docker =====
+docker/postgres-data/
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Uploaded files (runtime, not committed) =====
+uploads/
+
