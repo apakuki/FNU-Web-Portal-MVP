@@ -400,6 +400,175 @@ Expected: HTTP 422 (validation error, not 500).
 
 ---
 
+## Part 5: Banner Integration Layer
+
+### Prerequisites
+
+- Docker Desktop running
+- Parts 2-4 verified (database migrated and seeded)
+
+### Steps
+
+**1. Start the stack**
+
+```bash
+./scripts/start.sh
+```
+
+Wait for all containers, then ensure the database is migrated and seeded.
+
+**2. Verify Banner health endpoint (mock mode)**
+
+```bash
+curl -s http://localhost/api/banner/health | python3 -m json.tool
+```
+
+Expected:
+
+```json
+{
+    "status": "ok",
+    "latency_ms": 1.0
+}
+```
+
+**3. Verify main health endpoint includes Banner status**
+
+```bash
+curl -s http://localhost/api/health | python3 -m json.tool
+```
+
+Expected: `status: "ok"`, `postgres: "ok"`, `banner: "ok"`.
+
+**4. Verify Banner health in Swagger docs**
+
+Open http://localhost:8000/api/docs — you should see the `/api/banner/health` endpoint listed under the "banner" tag.
+
+**5. Run the Banner unit tests**
+
+```bash
+cd backend
+uv run pytest tests/test_banner_mock.py tests/test_banner_cache.py tests/test_banner_factory.py -v
+```
+
+Expected: 34 tests pass, covering:
+- 22 mock adapter tests (all read/write functions)
+- 8 cache tests (TTL, invalidation, cached client behaviour)
+- 4 factory tests (singleton, production validation, credential checks)
+
+**6. Verify mock adapter data is realistic**
+
+```bash
+cd backend
+uv run python -c "
+import asyncio
+from src.backend.banner.mock_adapter import MockBannerClient
+
+async def check():
+    c = MockBannerClient()
+    progs = await c.get_programmes()
+    print(f'Programmes: {len(progs)}')
+    for p in progs:
+        print(f'  {p.code}: {p.name} ({p.college})')
+    
+    courses = await c.get_courses('BCOM')
+    print(f'BCOM courses: {len(courses)}')
+    
+    fees = await c.get_fee_schedule(2026, 'S1')
+    print(f'Fee items: {len(fees.items)}')
+    
+    student = await c.get_student('S00012345')
+    print(f'Student: {student.first_name} {student.last_name} ({student.banner_id})')
+    
+    invoices = await c.get_invoices('S00012345')
+    print(f'Invoices: {len(invoices)}, balance: FJD {(invoices[0].total_cents - invoices[0].paid_cents)/100:.2f}')
+
+asyncio.run(check())
+"
+```
+
+Expected output showing 5 programmes, BCOM courses, fee items, student data, and invoice balances.
+
+**7. Verify cache behaviour**
+
+```bash
+cd backend
+uv run python -c "
+import asyncio
+from src.backend.banner.mock_adapter import MockBannerClient
+from src.backend.banner.cached_client import CachedBannerClient
+
+async def check():
+    inner = MockBannerClient()
+    cached = CachedBannerClient(inner, ttl_seconds=60)
+    
+    await cached.get_programmes()
+    await cached.get_programmes()
+    print(f'Cache size after 2 programme calls: {cached.cache.size} (should be 1)')
+    
+    await cached.get_courses('BCOM')
+    await cached.get_courses('BSCI')
+    print(f'Cache size after 2 different course calls: {cached.cache.size} (should be 3)')
+    
+    await cached.get_student('S00012345')
+    print(f'Cache size after student call: {cached.cache.size} (should still be 3, students not cached)')
+
+asyncio.run(check())
+"
+```
+
+**8. Verify production safety — mock blocked in production**
+
+```bash
+cd backend
+ENVIRONMENT=production BANNER_MODE=mock JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))") \
+  uv run python -c "
+from src.backend.banner.factory import get_banner_client, reset_banner_client
+reset_banner_client()
+try:
+    get_banner_client()
+    print('ERROR: Should have raised ValueError')
+except ValueError as e:
+    print(f'Correctly blocked: {e}')
+"
+```
+
+Expected: `Correctly blocked: BANNER_MODE=mock is not allowed in production...`
+
+**9. Verify live mode requires credentials**
+
+```bash
+cd backend
+BANNER_MODE=live BANNER_API_URL= BANNER_API_KEY= \
+  uv run python -c "
+from src.backend.banner.factory import get_banner_client, reset_banner_client
+reset_banner_client()
+try:
+    get_banner_client()
+    print('ERROR: Should have raised ValueError')
+except ValueError as e:
+    print(f'Correctly blocked: {e}')
+"
+```
+
+Expected: `Correctly blocked: BANNER_API_URL and BANNER_API_KEY must be set...`
+
+**10. Run full backend test suite**
+
+```bash
+cd backend && uv run pytest tests/ -v
+```
+
+All tests should pass (47 backend).
+
+**11. Stop the stack**
+
+```bash
+./scripts/stop.sh
+```
+
+---
+
 ## Security Verification Checklist (All Parts)
 
 Run this checklist before any production deployment or after any security-related change.

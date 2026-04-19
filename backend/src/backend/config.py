@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     banner_mode: str = "mock"
+    banner_api_url: str = ""
+    banner_api_key: str = ""
+    banner_timeout_seconds: float = 10.0
+    banner_cache_ttl_seconds: int = 900
     openrouter_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
     environment: str = "development"

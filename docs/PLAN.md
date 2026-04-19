@@ -213,22 +213,22 @@ Build the `banner_client` module — the single gateway to Ellucian Banner. Ship
 ### Substeps
 
 - [ ] Procure and test Banner API credentials (blocking — FNU to provide end of Week 1)
-- [ ] Build `banner_client` package with typed read functions: `get_programmes`, `get_courses`, `get_offerings`, `get_fee_schedule`, `get_student`, `get_invoices`, `get_class_roster`
-- [ ] Build write functions: `create_student`, `register_course`, `submit_grade`, `create_invoice`
-- [ ] Implement in-memory cache with 15-minute TTL for programmes, courses, fee schedules
-- [ ] Build a Banner mock adapter for local dev and tests (honours the same interface, returns seeded data)
-- [ ] Implement `/api/banner/health` returning connectivity status
-- [ ] Document every Banner field the portal consumes in docs/BANNER_SURFACE.md
+- [x] Build `banner_client` package with typed read functions: `get_programmes`, `get_courses`, `get_offerings`, `get_fee_schedule`, `get_student`, `get_invoices`, `get_class_roster`
+- [x] Build write functions: `create_student`, `register_course`, `submit_grade`, `create_invoice`
+- [x] Implement in-memory cache with 15-minute TTL for programmes, courses, fee schedules
+- [x] Build a Banner mock adapter for local dev and tests (honours the same interface, returns seeded data)
+- [x] Implement `/api/banner/health` returning connectivity status
+- [x] Document every Banner field the portal consumes in docs/BANNER_SURFACE.md
 
 ### Security Hardening
 
-- [ ] Store Banner API credentials in `.env`, never in code or logs
-- [ ] Use TLS for all Banner connections (verify SSL certificates)
-- [ ] Sanitise all data received from Banner before storing or rendering (prevent stored XSS)
-- [ ] Implement request timeout (10s) and circuit breaker on Banner calls to prevent cascading failures
+- [x] Store Banner API credentials in `.env`, never in code or logs
+- [x] Use TLS for all Banner connections (verify SSL certificates)
+- [x] Sanitise all data received from Banner before storing or rendering (prevent stored XSS)
+- [x] Implement request timeout (10s) and circuit breaker on Banner calls to prevent cascading failures
 - [ ] Rate limit Banner API calls to stay within Ellucian quotas
 - [ ] Log all Banner write operations to audit_log (before and after values)
-- [ ] Ensure mock adapter never leaks into production (`BANNER_MODE` validated at startup)
+- [x] Ensure mock adapter never leaks into production (`BANNER_MODE` validated at startup)
 
 ### Tests
 

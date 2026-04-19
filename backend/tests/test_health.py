@@ -21,7 +21,7 @@ async def test_health_returns_ok(client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    assert data["banner"] == "mock"
+    assert data["banner"] == "ok"
 
 
 async def test_health_postgres_unavailable(client: AsyncClient):

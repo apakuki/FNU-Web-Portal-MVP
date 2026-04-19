@@ -507,24 +507,32 @@ Symptom: Tab navigation works but no visible focus indicator
 ### 5.1 Banner connection fails
 
 ```
-Symptom: /api/banner/health returns unhealthy
+Symptom: /api/banner/health returns {"status": "unavailable"}
 │
-├─ Is BANNER_MODE set?
-│  ├─ "mock" → Should always work. Check mock adapter code.
+├─ Is BANNER_MODE set correctly in .env?
+│  ├─ "mock" → Should always return ok. If failing:
+│  │  └─ Check backend logs: docker compose logs backend
+│  │  └─ Verify banner module loads: uv run python -c "from src.backend.banner import get_banner_client"
 │  └─ "live" → Real Banner credentials required
 │     │
-│     ├─ Are Banner API credentials configured in .env?
-│     │  └─ BANNER_API_URL, BANNER_API_KEY, BANNER_API_SECRET
+│     ├─ Are credentials configured in .env?
+│     │  └─ BANNER_API_URL (e.g. https://banner.fnu.ac.fj/api)
+│     │  └─ BANNER_API_KEY (Bearer token)
 │     │
 │     ├─ Can the backend reach Banner's network?
-│     │  └─ From inside Docker: docker exec <backend> curl <BANNER_API_URL>/health
+│     │  └─ From inside Docker: docker exec docker-backend-1 curl -k $BANNER_API_URL/health
 │     │  └─ DNS/firewall issue? Banner may require VPN or IP whitelisting
 │     │
+│     ├─ Is the circuit breaker open?
+│     │  └─ After 5 consecutive failures, calls fail fast for 60 seconds
+│     │  └─ Check backend logs for "circuit breaker opened"
+│     │  └─ Fix: resolve connectivity issue, then wait 60s for circuit to half-open
+│     │
 │     └─ Are credentials valid?
-│        └─ Test with a simple read call (get_programmes)
+│        └─ Test: curl -H "Authorization: Bearer $BANNER_API_KEY" $BANNER_API_URL/health
 │        └─ Contact FNU IT if credentials are rejected
 │
-└─ Check /api/health — it reports banner status alongside postgres
+└─ Check /api/health — reports banner status alongside postgres
 ```
 
 ### 5.2 Cache returning stale data
@@ -532,13 +540,48 @@ Symptom: /api/banner/health returns unhealthy
 ```
 Symptom: Programme or course data is outdated after Banner update
 │
-├─ Cache TTL is 15 minutes
+├─ Cache TTL is 15 minutes (BANNER_CACHE_TTL_SECONDS=900)
 │  └─ Wait 15 minutes or restart the backend to clear cache
 │
 ├─ Force cache invalidation:
 │  └─ Restart backend: docker compose restart backend
 │
-└─ For development: set cache TTL to 0 in config
+├─ Reduce TTL for development:
+│  └─ Set BANNER_CACHE_TTL_SECONDS=30 in .env
+│
+└─ What is cached vs not cached?
+   ├─ Cached: programmes, courses, fee schedules
+   └─ Not cached: students, invoices, offerings, rosters
+```
+
+### 5.3 Backend fails to start with BANNER_MODE error
+
+```
+Symptom: ValueError "BANNER_MODE=mock is not allowed in production"
+│
+├─ In production, BANNER_MODE must be "live"
+│  └─ Set BANNER_MODE=live in .env
+│  └─ Set BANNER_API_URL and BANNER_API_KEY
+│
+└─ Symptom: ValueError "BANNER_API_URL and BANNER_API_KEY must be set"
+   └─ BANNER_MODE=live requires both URL and key
+   └─ Check .env has non-empty values for both
+```
+
+### 5.4 Banner request timeout
+
+```
+Symptom: Slow Banner responses or TimeoutError in logs
+│
+├─ Default timeout is 10 seconds (BANNER_TIMEOUT_SECONDS)
+│  └─ Increase if Banner is legitimately slow: BANNER_TIMEOUT_SECONDS=30
+│
+├─ Check Banner server health directly
+│  └─ curl -w "time_total: %{time_total}\n" $BANNER_API_URL/health
+│
+└─ If timeouts are frequent, circuit breaker will activate after 5 failures
+   └─ Check logs: "Banner circuit breaker opened after 5 failures"
+   └─ All requests will fail fast for 60 seconds, then retry
 ```
 
 ---
@@ -1053,6 +1096,7 @@ Symptom: http://localhost:8000/api/docs returns 404
 | Frontend tests | `cd frontend && npx vitest run` |
 | TypeScript check | `cd frontend && npx tsc --noEmit` |
 | Check health | `curl http://localhost/api/health` |
+| Check Banner health | `curl http://localhost/api/banner/health` |
 | Connect to DB | `docker exec -it docker-postgres-1 psql -U fnu -d fnu_portal` |
 | Reset DB (destructive) | `cd docker && docker compose down -v && docker compose up -d` |
 | Rebuild without cache | `cd docker && docker compose build --no-cache` |
@@ -1084,7 +1128,11 @@ Symptom: http://localhost:8000/api/docs returns 404
 | `JWT_SECRET` | Backend | JWT signing secret (must be 32+ chars in production) |
 | `JWT_EXPIRE_MINUTES` | Backend | Token lifetime (default: 60) |
 | `ENVIRONMENT` | Backend | `development` or `production` (controls docs, secret validation) |
-| `BANNER_MODE` | Backend | `mock` or `live` |
+| `BANNER_MODE` | Backend | `mock` or `live` (mock blocked in production) |
+| `BANNER_API_URL` | Backend | Banner REST API base URL (required when live) |
+| `BANNER_API_KEY` | Backend | Banner API bearer token (required when live) |
+| `BANNER_TIMEOUT_SECONDS` | Backend | Per-request timeout (default: 10) |
+| `BANNER_CACHE_TTL_SECONDS` | Backend | Cache TTL for programmes/courses/fees (default: 900) |
 | `OPENROUTER_API_KEY` | Backend | AI chatbot LLM access |
 | `CORS_ORIGINS` | Backend | Allowed CORS origins |
 | `INTERNAL_API_URL` | Frontend (runtime) | Backend URL for SSR fetches |
