@@ -1,7 +1,7 @@
 import { HealthStatus } from "./health-status";
 
 async function getHealth() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  const apiUrl = process.env.INTERNAL_API_URL ?? "http://localhost:8000";
   try {
     const res = await fetch(`${apiUrl}/api/health`, {
       cache: "no-store",

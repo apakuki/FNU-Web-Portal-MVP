@@ -25,7 +25,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://fnu:fnu_dev_password@postgres:5432/fnu_portal
       BANNER_MODE: mock
     env_file:
-      - ../.env
+      - path: ../.env
+        required: false
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,7 +38,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ""
+      INTERNAL_API_URL: "http://backend:8000"
     depends_on:
       - backend
 

@@ -15,7 +15,8 @@ if ! docker info &> /dev/null 2>&1; then
 fi
 
 echo "Starting FNU Web Portal..."
-docker compose -f "$PROJECT_ROOT/docker/docker-compose.yml" --project-directory "$PROJECT_ROOT" up --build -d
+cd "$PROJECT_ROOT/docker"
+docker compose up --build -d
 
 echo ""
 echo "FNU Web Portal is starting up."

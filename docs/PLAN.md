@@ -61,7 +61,7 @@ Set up Docker infrastructure, FastAPI backend skeleton, Next.js frontend skeleto
 - [x] Create start scripts for Mac, Linux, Windows in `scripts/`
 - [x] Create stop scripts for all platforms
 - [x] Add GitHub Actions CI workflow: backend (ruff, mypy, pytest), frontend (eslint, tsc, vitest), contract check (regenerate types, fail on drift), Docker build for both images
-- [ ] Verify Docker Compose up end-to-end locally: home page loads, fetches `/api/health`, renders "ok"
+- [x] Verify Docker Compose up end-to-end locally: home page loads, fetches `/api/health`, renders "ok"
 
 ### Tests
 
