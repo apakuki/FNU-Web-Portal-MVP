@@ -48,19 +48,19 @@ Set up Docker infrastructure, FastAPI backend skeleton, Next.js frontend skeleto
 
 ### Substeps
 
-- [ ] Create `docker/Dockerfile.backend` (Python 3.12, uv, FastAPI)
-- [ ] Create `docker/Dockerfile.frontend` (Node 20, Next.js production build, standalone output)
-- [ ] Create `docker/docker-compose.yml` with services: `backend`, `frontend`, `postgres`, `proxy` (nginx or Caddy)
-- [ ] Configure the proxy: route `/api/*` to backend, everything else to Next.js
-- [ ] Initialise FastAPI in `backend/` with `/api/health` and CORS configured for local dev
-- [ ] Initialise Next.js App Router in `frontend/` with a placeholder home page that fetches `/api/health` and renders its status
-- [ ] Configure `next.config.ts` for standalone output and image optimisation
-- [ ] Configure Tailwind with FNU brand tokens from AGENTS.md
-- [ ] Wire Alembic for migrations; create initial empty migration
-- [ ] Set up the OpenAPI → TypeScript pipeline: `openapi-typescript` generates `frontend/lib/api-types.ts` from `backend` OpenAPI schema; add an `npm run generate:types` script and a CI check that fails if committed types drift from the backend
-- [ ] Create start scripts for Mac, Linux, Windows in `scripts/`
-- [ ] Create stop scripts for all platforms
-- [ ] Add GitHub Actions CI workflow: backend (ruff, mypy, pytest), frontend (eslint, tsc, vitest), contract check (regenerate types, fail on drift), Docker build for both images
+- [x] Create `docker/Dockerfile.backend` (Python 3.12, uv, FastAPI)
+- [x] Create `docker/Dockerfile.frontend` (Node 20, Next.js production build, standalone output)
+- [x] Create `docker/docker-compose.yml` with services: `backend`, `frontend`, `postgres`, `proxy` (nginx or Caddy)
+- [x] Configure the proxy: route `/api/*` to backend, everything else to Next.js
+- [x] Initialise FastAPI in `backend/` with `/api/health` and CORS configured for local dev
+- [x] Initialise Next.js App Router in `frontend/` with a placeholder home page that fetches `/api/health` and renders its status
+- [x] Configure `next.config.ts` for standalone output and image optimisation
+- [x] Configure Tailwind with FNU brand tokens from AGENTS.md
+- [x] Wire Alembic for migrations; create initial empty migration
+- [x] Set up the OpenAPI → TypeScript pipeline: `openapi-typescript` generates `frontend/lib/api-types.ts` from `backend` OpenAPI schema; add an `npm run generate:types` script and a CI check that fails if committed types drift from the backend
+- [x] Create start scripts for Mac, Linux, Windows in `scripts/`
+- [x] Create stop scripts for all platforms
+- [x] Add GitHub Actions CI workflow: backend (ruff, mypy, pytest), frontend (eslint, tsc, vitest), contract check (regenerate types, fail on drift), Docker build for both images
 - [ ] Verify Docker Compose up end-to-end locally: home page loads, fetches `/api/health`, renders "ok"
 
 ### Tests

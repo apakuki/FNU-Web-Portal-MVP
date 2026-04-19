@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fnu-blue: #003A70;
+  --color-fnu-gold: #FFB81C;
+  --color-success: #2E7D32;
+  --color-warning: #F9A825;
+  --color-danger: #C62828;
+  --color-dark: #0A1F33;
+  --color-gray: #6B7280;
+  --color-surface: #F4F6F9;
+}
