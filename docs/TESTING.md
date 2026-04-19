@@ -350,8 +350,88 @@ cd frontend && npx vitest run
 
 All tests should pass (13 backend, 9 frontend).
 
-**15. Stop the stack**
+**15. Verify security headers**
+
+```bash
+curl -s -D - http://localhost -o /dev/null | grep -iE "(x-content|x-frame|referrer|strict-transport|permissions-policy|content-security)"
+```
+
+Expected headers present:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+- `Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()`
+- `Content-Security-Policy: default-src 'self'; ...`
+
+**16. Verify rate limiting on login**
+
+```bash
+for i in $(seq 1 12); do
+  curl -s -o /dev/null -w "Attempt $i: HTTP %{http_code}\n" \
+    http://localhost/api/auth/login \
+    -X POST -H "Content-Type: application/json" \
+    -d '{"email":"test@fnu.ac.fj","password":"wrong"}'
+done
+```
+
+Expected: first 10 attempts return 401, attempts 11+ return 429 (rate limited).
+
+**17. Verify Swagger docs accessible in development**
+
+Open http://localhost:8000/api/docs — Swagger UI should load. In production (ENVIRONMENT=production), this endpoint returns 404.
+
+**18. Verify input validation**
+
+```bash
+# Email format validation
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/auth/login \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"email":"not-an-email","password":"test"}'
+```
+
+Expected: HTTP 422 (validation error, not 500).
+
+**19. Stop the stack**
 
 ```bash
 ./scripts/stop.sh
 ```
+
+---
+
+## Security Verification Checklist (All Parts)
+
+Run this checklist before any production deployment or after any security-related change.
+
+### Infrastructure
+
+- [ ] All containers running as non-root user (`docker exec <container> whoami` → not root)
+- [ ] nginx `server_tokens off` (response does not reveal nginx version)
+- [ ] All six security headers present on every response (see step 15 above)
+- [ ] `.env` file is git-ignored and not present in Docker images
+- [ ] No secrets in `NEXT_PUBLIC_*` environment variables
+- [ ] Docker base images are current (no known CVEs)
+
+### Authentication
+
+- [ ] JWT_SECRET is not "change-me" (check .env)
+- [ ] NEXTAUTH_SECRET is set and at least 32 characters
+- [ ] Login returns 401 for wrong credentials (no information leakage)
+- [ ] Account lockout activates after 5 failed attempts
+- [ ] Lockout persists across container restarts (database-backed)
+- [ ] Rate limiting active on login, reset-password endpoints
+- [ ] Password reset does not enumerate valid emails
+- [ ] Swagger/OpenAPI docs disabled when ENVIRONMENT=production
+
+### Frontend
+
+- [ ] Unauthenticated access to /dashboard redirects to /login
+- [ ] Session cookie has httpOnly, Secure, SameSite flags
+- [ ] No tokens stored in localStorage or sessionStorage
+- [ ] Server Components used by default (no unnecessary client JS)
+
+### Error Handling
+
+- [ ] Backend never returns stack traces to clients (trigger a 500 and verify response is `{"detail": "Internal server error"}`)
+- [ ] Frontend error boundaries catch rendering errors gracefully

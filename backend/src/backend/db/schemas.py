@@ -1,11 +1,11 @@
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
 
 
 class UserResponse(BaseModel):
@@ -29,12 +29,12 @@ class MeResponse(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class ResetPasswordConfirmRequest(BaseModel):
-    token: str
-    new_password: str
+    token: str = Field(min_length=10, max_length=512)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class MessageResponse(BaseModel):

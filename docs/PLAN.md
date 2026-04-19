@@ -63,6 +63,17 @@ Set up Docker infrastructure, FastAPI backend skeleton, Next.js frontend skeleto
 - [x] Add GitHub Actions CI workflow: backend (ruff, mypy, pytest), frontend (eslint, tsc, vitest), contract check (regenerate types, fail on drift), Docker build for both images
 - [x] Verify Docker Compose up end-to-end locally: home page loads, fetches `/api/health`, renders "ok"
 
+### Security Hardening (Retroactive)
+
+- [x] Backend container runs as non-root user (USER app in Dockerfile)
+- [x] `.dockerignore` excludes `.venv`, `node_modules`, `.next`, `__pycache__`, `.git` from build context
+- [x] nginx security headers: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, HSTS, Permissions-Policy, CSP
+- [x] nginx `server_tokens off` to hide version information
+- [x] CORS restricted to specific origins (not wildcard)
+- [x] CORS `allow_methods` restricted to used HTTP verbs only (not `["*"]`)
+- [x] `.env` git-ignored; `.env.example` committed with safe placeholder values
+- [x] Frontend security headers set in Next.js middleware (HSTS, Permissions-Policy, X-DNS-Prefetch-Control)
+
 ### Tests
 
 - Backend: unit tests for health route and settings loader (>=80% coverage)
@@ -103,6 +114,20 @@ Implement the Postgres schema from docs/DATABASE.md, build JWT-based authenticat
 - [x] Implement password reset flow (token issued backend-side, email sent via stubbed sender)
 - [x] Build seed command loading synthetic students, staff, admin, lecturer, finance users
 - [x] Implement audit_log write helper (async, fire-and-forget) and use it from login/logout
+
+### Security Hardening (Retroactive)
+
+- [x] Password hashing: bcrypt with cost factor 12
+- [x] JWT: HS256 with configurable secret; production startup validator rejects weak/default secrets
+- [x] Session tracking: JTI hashed (SHA-256) in sessions table; logout revokes server-side
+- [x] Account lockout: 5 failed attempts / 15 min, tracked in database (persistent across restarts)
+- [x] Rate limiting: slowapi on login (10/min), reset-password (3/min), reset-confirm (5/min)
+- [x] Global exception handler: catches unhandled errors, returns generic message, logs details server-side
+- [x] Swagger/OpenAPI docs: disabled in production (ENVIRONMENT=production)
+- [x] Input validation: EmailStr on email fields, length constraints on passwords and tokens
+- [x] Parameterised queries only (SQLAlchemy ORM — no raw SQL)
+- [x] Audit log on every login/logout with actor, IP address, timestamp
+- [x] Password reset: no email enumeration (always returns success message)
 
 ### Tests
 
@@ -147,6 +172,16 @@ Build the Next.js App Router structure for the public landing (SSR for speed), t
 - [x] Ensure mobile responsiveness (min 44px tap targets, hamburger sidebar on mobile)
 - [ ] Measure and meet the <3s-on-3G first-paint target on the public landing using Lighthouse
 
+### Security Hardening (Retroactive)
+
+- [x] Route protection: Next.js middleware redirects unauthenticated users to /login
+- [x] Session cookies: httpOnly, Secure, SameSite=Lax (via next-auth)
+- [x] Security headers on every response via Next.js middleware
+- [x] No secrets in NEXT_PUBLIC_ variables
+- [x] Server Components used by default (no client-side token exposure)
+- [x] INTERNAL_API_URL used for SSR fetches (not exposed to client)
+- [x] Accessible focus-visible indicators on all interactive elements
+
 ### Tests
 
 - Vitest unit tests for layout components, outstanding-fees banner logic, nav (>=80% coverage)
@@ -185,6 +220,16 @@ Build the `banner_client` module — the single gateway to Ellucian Banner. Ship
 - [ ] Implement `/api/banner/health` returning connectivity status
 - [ ] Document every Banner field the portal consumes in docs/BANNER_SURFACE.md
 
+### Security Hardening
+
+- [ ] Store Banner API credentials in `.env`, never in code or logs
+- [ ] Use TLS for all Banner connections (verify SSL certificates)
+- [ ] Sanitise all data received from Banner before storing or rendering (prevent stored XSS)
+- [ ] Implement request timeout (10s) and circuit breaker on Banner calls to prevent cascading failures
+- [ ] Rate limit Banner API calls to stay within Ellucian quotas
+- [ ] Log all Banner write operations to audit_log (before and after values)
+- [ ] Ensure mock adapter never leaks into production (`BANNER_MODE` validated at startup)
+
 ### Tests
 
 - Unit tests against the mock adapter for every function (>=80% coverage)
@@ -221,6 +266,17 @@ Deliver TOR 2.1.2 and 2.1.3: online application form, document upload, status tr
 - [ ] Build offer acceptance page at `app/(public)/offer/[token]/` — server-renders the offer content from the backend, shows accept/decline buttons
 - [ ] Wire notifications on every status change (email via stub sender, SMS via stub)
 - [ ] Support conditional offers for school leavers
+
+### Security Hardening
+
+- [ ] Validate and sanitise all application form inputs server-side (Pydantic + custom validators)
+- [ ] File upload security: MIME-type allowlist (PDF/JPG/PNG only), magic-byte validation (not just extension), 5MB size limit enforced at proxy and backend, randomised filenames, store outside web root
+- [ ] Rate limit application submissions (5/hour per IP) to prevent spam
+- [ ] Offer acceptance tokens: cryptographically random (secrets.token_urlsafe), single-use, 7-day expiry, hashed in DB
+- [ ] Staff review endpoints: require_role("staff", "admin") — never publicly accessible
+- [ ] Bulk actions: require_role("admin") with mandatory audit log entry per affected record
+- [ ] PDF generation: sanitise all interpolated values to prevent HTML injection in templates
+- [ ] Public application form: CSRF protection via next-auth token
 
 ### Tests
 
@@ -267,6 +323,15 @@ Deliver TOR 2.1.4, 2.1.5, 2.1.7, 2.1.8, 2.1.9: programme display, course selecti
 - [ ] Use Client Components for the course-selection flow (interactive prereq checks, clash warnings, confirm step)
 - [ ] Partial-load pricing: invoice is sum of course fees, not programme flat fee
 
+### Security Hardening
+
+- [ ] Registration confirm is atomic — partial failures must roll back (no orphaned Banner writes)
+- [ ] All registration endpoints enforce require_role("student") — students can only register themselves
+- [ ] Invoice PDF generation: sanitise all interpolated values; validate invoice belongs to requesting user
+- [ ] Timetable/grades endpoints: scope queries to authenticated user's ID (prevent IDOR)
+- [ ] .ics export: validate output contains no PII beyond what the student should see
+- [ ] Rate limit registration confirm (3/minute per user) to prevent accidental double-registration
+
 ### Tests
 
 - Backend unit tests: prereq validator, clash detector, GPA calculator, fee calculator (>=80% coverage)
@@ -306,6 +371,19 @@ Deliver TOR 2.2: M-PAiSA + MyCash integration, bank transfer fallback, payment p
 - [ ] Build student-facing "Make a Payment" page at `app/(portal)/pay/` — Client Component with method picker, amount or full balance, retry on failure
 - [ ] Build finance bank-transfer confirmation UI
 
+### Security Hardening
+
+- [ ] Payment callback endpoints: verify gateway-specific HMAC signature on every callback; reject unsigned/invalid
+- [ ] Callback endpoints: exclude from CSRF/auth middleware (they are gateway-initiated), but verify by signature
+- [ ] Idempotency: same callback replayed must produce exactly one state change (use gateway_reference as dedup key)
+- [ ] Payment initiation: validate amount matches invoice balance; prevent negative or zero amounts
+- [ ] Store gateway credentials (MPAISA_SECRET, MYCASH_SECRET) in `.env` only, never log them
+- [ ] Rate limit payment initiation (10/minute per user) to prevent abuse
+- [ ] Reconciliation endpoints: require_role("finance", "admin") — never student-accessible
+- [ ] Bank-confirm endpoint: require_role("finance") with mandatory audit log and reason
+- [ ] All payment amounts validated server-side — never trust client-submitted amounts
+- [ ] TLS required for all gateway API calls; pin certificates if gateway supports it
+
 ### Tests
 
 - Backend unit tests for each adapter, signature verification, idempotency, schedule generator (>=80% coverage)
@@ -344,6 +422,17 @@ Deliver TOR 2.3.1 and 2.3.2 backend: OpenRouter integration, FAQ-augmented LLM r
 - [ ] Build `/api/admin/chatbot/analytics` — totals, resolution rate, top categories, escalation rate
 - [ ] Seed initial FAQ from `seed/chatbot_faq.json` covering entry requirements, deadlines, fees, graduation
 
+### Security Hardening
+
+- [ ] OPENROUTER_API_KEY stored in `.env`, never logged, never included in error responses
+- [ ] Sanitise all user messages before including in LLM prompt (prevent prompt injection)
+- [ ] Limit message length (2000 chars max) and conversation history depth (50 turns) to prevent token abuse
+- [ ] Rate limit chat endpoint: 30 req/min per user (authenticated), 10 req/min per IP (unauthenticated)
+- [ ] Authenticated mode: only inject the requesting student's data into the prompt (never other students')
+- [ ] Strip PII from chatbot conversation logs visible in admin UI (mask student IDs, email addresses)
+- [ ] Admin knowledge CRUD: require_role("admin") — prevent privilege escalation via FAQ manipulation
+- [ ] Validate FAQ content for script injection before storing (sanitise HTML)
+
 ### Tests
 
 - Backend unit tests for prompt composition, knowledge retrieval, escalation trigger logic (>=80% coverage)
@@ -380,6 +469,13 @@ Deliver TOR 2.3 frontend: embedded floating chatbot widget, conversation UI, plu
 - [ ] Build admin query log UI at `app/(admin)/chatbot/conversations/`: searchable list, filterable by category, status, date
 - [ ] Build admin analytics UI at `app/(admin)/chatbot/analytics/`: total queries, resolution rate, top categories, escalation rate
 - [ ] Ship a standalone embeddable widget bundle (separate Next.js route or a dedicated build target) that can be dropped into the FNU main website via a single `<script>` tag
+
+### Security Hardening
+
+- [ ] Embeddable widget: restrict to allowed origins via postMessage origin checks and CSP frame-ancestors
+- [ ] Chat input: sanitise and escape all user input before rendering in the conversation UI (prevent XSS)
+- [ ] Widget does not expose auth tokens — uses session cookie only
+- [ ] Standalone bundle: include Subresource Integrity (SRI) hash in the `<script>` tag
 
 ### Tests
 
@@ -419,6 +515,17 @@ Deliver TOR 2.1.6, 2.1.10: My Account (balance, payment history, instalment sche
 - [ ] Seed `notification_templates` with: payment reminder, registration confirmation, de-registration warning, deadline, offer issued, application status changes
 - [ ] Build admin UI at `app/(admin)/communications/` for sending batch SMS/email to filtered student groups (TOR 2.4.3)
 
+### Security Hardening
+
+- [ ] Photo upload: validate magic bytes (not just extension/MIME), strip EXIF data (GPS, device info), resize server-side
+- [ ] Photo storage: randomised filenames, stored outside web root, served via signed URLs or auth-gated endpoint
+- [ ] Profile update: users can only update their own profile (scope to authenticated user's ID)
+- [ ] QR payload: cryptographically signed (HMAC-SHA256) — verification page validates signature before displaying info
+- [ ] QR verification page (/verify/[qr]): display only non-sensitive info (name, programme, validity) — no grades, balance, or contact info
+- [ ] Notification templates: sanitise all variable interpolation to prevent injection in email/SMS bodies
+- [ ] Batch communications: require_role("admin", "staff") with audit log of sender, recipient count, and content hash
+- [ ] SMTP/SMS credentials: stored in `.env`, never logged
+
 ### Tests
 
 - Backend unit tests: balance calculator, photo resizer, QR signer, template renderer (>=80% coverage)
@@ -452,6 +559,15 @@ Deliver TOR 2.4: application management (already largely in Part 6, finish remai
 - [ ] Build processing-time dashboard cards (receipt timestamp → decision timestamp)
 - [ ] Wire audit_log writes on every override and status change
 
+### Security Hardening
+
+- [ ] All admin endpoints: require_role("staff", "admin") enforced via shared dependency
+- [ ] Student search: parameterised queries only (ORM); sanitise search input to prevent injection
+- [ ] Manual overrides (prereq waiver, late registration): require mandatory reason field; audit log captures before/after state, actor, timestamp, IP
+- [ ] Student detail view: scoped to admin role — students cannot view other students' records
+- [ ] Enquiry management: assignment changes audit-logged; resolution notes cannot be edited after submission
+- [ ] Export endpoints (CSV/Excel): require_role("admin", "staff"); log every export with actor and filter criteria
+
 ### Tests
 
 - Backend unit tests for search, override authorisation, audit log invariants (>=80% coverage)
@@ -482,6 +598,14 @@ Deliver TOR 2.6: class rosters and grade entry.
 - [ ] Build `POST /api/lecturer/grades` — per course per assessment period, with draft / submit-for-review / finalised workflow; timestamp captured for KPI
 - [ ] Build lecturer frontend under `app/(lecturer)/`: course list, roster table, grade entry grid with autosave (Client Component)
 - [ ] Grades write through to Banner via `banner_client.submit_grade`
+
+### Security Hardening
+
+- [ ] All lecturer endpoints: require_role("lecturer") — lecturers can only access their own courses
+- [ ] Roster access: scoped to courses assigned to the authenticated lecturer (prevent IDOR)
+- [ ] Grade submission: validate grades are within allowed range; require workflow state transition (draft → submitted → finalised)
+- [ ] Grade finalisation: irreversible without admin override; audit log captures every grade change with before/after values
+- [ ] Export endpoints: require_role("lecturer") scoped to own courses; log exports
 
 ### Tests
 
@@ -519,6 +643,15 @@ Deliver TOR 2.5: role-based dashboards (VC/SLT, Dean, Section Head, Individual S
 - [ ] Build drill-down: institution → college → function → individual
 - [ ] Build date-range filters: current semester, previous, YTD, custom
 
+### Security Hardening
+
+- [ ] Role-based dashboard access enforced at both backend (require_role) and frontend (middleware + component-level checks)
+- [ ] VC/SLT dashboard: require_role("vc", "admin"); Dean: require_role("manager", "admin"); etc.
+- [ ] Drill-down data scoped to the authenticated user's organisational unit (deans cannot see other colleges)
+- [ ] Manual KPI inputs: validate data ranges; audit log captures every manual entry with actor and timestamp
+- [ ] Finance dashboard: require_role("finance", "admin"); export endpoints audit-logged
+- [ ] Date-range filters: validate input ranges server-side (prevent excessively wide queries that could cause DoS)
+
 ### Tests
 
 - Backend unit tests: KPI computation functions, aggregation, drill-down resolver (>=80% coverage)
@@ -554,6 +687,17 @@ Deliver TOR 2.7: security, performance, accessibility, browser compatibility.
 - [ ] Error handling: backend returns user-friendly error payloads, never stack traces; frontend has a global error boundary and Next.js `error.tsx` routes
 - [ ] Automated daily Postgres backups (pg_dump cron; document restore procedure)
 - [ ] 24/7 readiness: health-check dashboard, alerting hooks on backend and frontend
+- [ ] Run OWASP ZAP automated scan against staging; remediate all high/critical findings
+- [ ] Verify all security headers present (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
+- [ ] Verify rate limiting active on auth, chat, and payment endpoints
+- [ ] Verify global exception handler catches all unhandled errors (no stack traces to clients)
+- [ ] Verify Swagger/OpenAPI docs disabled in production
+- [ ] Verify backend container runs as non-root user
+- [ ] Verify all secrets loaded from environment variables (grep for hardcoded values)
+- [ ] Dependency audit: `uv audit` (Python) and `npm audit` (Node.js); zero known vulnerabilities
+- [ ] Verify Docker base images are current; no known CVEs in base layers
+- [ ] Penetration test: IDOR on student-scoped endpoints, CSRF on state-changing endpoints, auth bypass attempts
+- [ ] Verify audit_log coverage: every admin action, every financial transaction, every grade change
 
 ### Tests
 
@@ -590,6 +734,18 @@ Deliver TOR deliverables D10–D16: test report, UAT support, production deploym
 - [ ] Finalise technical documentation (D14): architecture, API (OpenAPI spec auto-published), ops runbook
 - [ ] Produce user guides (D15): student guide, staff guide, video walkthroughs
 - [ ] Stand up post-launch support (D16): on-call for critical issues, Weeks 9–10
+
+### Security Hardening
+
+- [ ] Production secrets: generate cryptographically random JWT_SECRET and NEXTAUTH_SECRET (64+ chars each)
+- [ ] Production database: separate DB user with minimal privileges (no SUPERUSER, no CREATE DATABASE)
+- [ ] Production Postgres: TLS-encrypted connections, restrict to application container IPs only
+- [ ] DNS: configure CAA records to restrict certificate issuance to authorised CAs
+- [ ] Enable Dependabot / Renovate on GitHub repo for automated dependency security alerts
+- [ ] Document incident response procedure: who to call, how to rotate compromised secrets, how to revoke sessions
+- [ ] Verify production `.env` contains no default/placeholder values (jwt_secret != "change-me")
+- [ ] Enable structured JSON logging in production (no PII in log entries)
+- [ ] Set up uptime monitoring with alerting (health endpoint polling every 60s)
 
 ### Tests
 

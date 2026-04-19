@@ -16,11 +16,31 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set(
+    "Referrer-Policy",
+    "strict-origin-when-cross-origin",
+  );
+  response.headers.set(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains; preload",
+  );
+  response.headers.set(
+    "Permissions-Policy",
+    "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
+  );
+  response.headers.set("X-DNS-Prefetch-Control", "off");
+  response.headers.set("X-Permitted-Cross-Domain-Policies", "none");
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isPublicPath(pathname) || pathname.startsWith("/_next")) {
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next());
   }
 
   const token = await getToken({
@@ -34,7 +54,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {

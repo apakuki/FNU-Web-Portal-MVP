@@ -33,6 +33,8 @@ def _make_user(role: str = "student") -> User:
         role=role,
         password_hash=hash_password("password123"),
         is_active=True,
+        failed_login_attempts=0,
+        locked_until=None,
     )
     return user
 
@@ -92,6 +94,6 @@ async def test_reset_password_always_succeeds(client: AsyncClient):
 async def test_reset_password_confirm_rejects_invalid_token(client: AsyncClient):
     response = await client.post(
         "/api/auth/reset-password/confirm",
-        json={"token": "invalid", "new_password": "new"},
+        json={"token": "invalid-token-value-long-enough", "new_password": "NewSecurePass123"},
     )
     assert response.status_code == 400

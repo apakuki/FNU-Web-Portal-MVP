@@ -11,6 +11,7 @@ from src.backend.auth import (
     hash_jti,
     verify_password,
 )
+from src.backend.config import settings
 from src.backend.db.models import Session, User
 from src.backend.db.schemas import (
     LoginRequest,
@@ -22,47 +23,68 @@ from src.backend.db.schemas import (
     UserResponse,
 )
 from src.backend.db.session import get_session
+from src.backend.rate_limit import limiter
 from src.backend.services.audit_service import write_audit_log
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
-_failed_attempts: dict[str, list[datetime]] = {}
 
 
-def _check_lockout(email: str) -> None:
-    attempts = _failed_attempts.get(email, [])
-    cutoff = datetime.now(UTC) - timedelta(minutes=LOCKOUT_MINUTES)
-    recent = [a for a in attempts if a > cutoff]
-    _failed_attempts[email] = recent
-    if len(recent) >= MAX_FAILED_ATTEMPTS:
-        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+async def _check_lockout(email: str, db: AsyncSession) -> None:
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
+    user = result.scalar_one_or_none()
+    if user and user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
+        if user.locked_until and user.locked_until > datetime.now(UTC):
+            raise HTTPException(
+                status_code=429, detail="Too many failed attempts. Try again later."
+            )
 
 
-def _record_failed_attempt(email: str) -> None:
-    _failed_attempts.setdefault(email, []).append(datetime.now(UTC))
+async def _record_failed_attempt(email: str, db: AsyncSession) -> None:
+    await db.execute(
+        update(User)
+        .where(User.email == email)
+        .values(
+            failed_login_attempts=User.failed_login_attempts + 1,
+            locked_until=datetime.now(UTC) + timedelta(minutes=LOCKOUT_MINUTES),
+        )
+    )
+    await db.commit()
+
+
+async def _clear_failed_attempts(user_id: object, db: AsyncSession) -> None:
+    await db.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(failed_login_attempts=0, locked_until=None)
+    )
 
 
 @router.post("/login", response_model=LoginResponse)
+@limiter.limit("10/minute")
 async def login(
     body: LoginRequest,
     request: Request,
     db: AsyncSession = Depends(get_session),
 ) -> LoginResponse:
-    _check_lockout(body.email)
+    await _check_lockout(body.email, db)
 
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.password_hash):
-        _record_failed_attempt(body.email)
+        if user:
+            await _record_failed_attempt(body.email, db)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Account disabled")
 
-    _failed_attempts.pop(body.email, None)
+    await _clear_failed_attempts(user.id, db)
 
     token, jti = create_access_token(str(user.id), user.role)
     token_hash = hash_jti(jti)
@@ -70,7 +92,7 @@ async def login(
     session = Session(
         user_id=user.id,
         token_hash=token_hash,
-        expires_at=datetime.now(UTC) + timedelta(minutes=60),
+        expires_at=datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes),
     )
     db.add(session)
     await db.commit()
@@ -130,12 +152,15 @@ async def me(user: User = Depends(get_current_user)) -> MeResponse:
 
 
 @router.post("/reset-password", response_model=MessageResponse)
-async def reset_password(body: ResetPasswordRequest) -> MessageResponse:
+@limiter.limit("3/minute")
+async def reset_password(body: ResetPasswordRequest, request: Request) -> MessageResponse:
     return MessageResponse(detail="If that email exists, a reset link has been sent.")
 
 
 @router.post("/reset-password/confirm", response_model=MessageResponse)
+@limiter.limit("5/minute")
 async def reset_password_confirm(
     body: ResetPasswordConfirmRequest,
+    request: Request,
 ) -> MessageResponse:
     raise HTTPException(status_code=400, detail="Invalid or expired token")

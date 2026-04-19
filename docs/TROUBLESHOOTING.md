@@ -957,6 +957,86 @@ Symptom: Deployed version has critical bug, need to rollback
 
 ---
 
+## Security Troubleshooting
+
+### S.1 Backend fails to start with "JWT_SECRET must be set"
+
+```
+Symptom: Backend container exits with ValueError about JWT_SECRET
+│
+├─ This error only occurs when ENVIRONMENT=production
+│  └─ FIX: Set JWT_SECRET to a cryptographically random 64+ character string in .env
+│     └─ Generate: python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+│
+└─ For local development: set ENVIRONMENT=development (or omit — it defaults to development)
+```
+
+### S.2 Rate limiting blocking legitimate users
+
+```
+Symptom: Users get 429 "Too Many Requests" on login
+│
+├─ Is the user behind a shared IP (corporate NAT, university network)?
+│  └─ Rate limiting is per IP — many users sharing one IP can trigger limits
+│  └─ FIX: Increase the limit in auth.py or use X-Forwarded-For for rate key
+│
+├─ Is the user's account locked out?
+│  └─ Check: SELECT email, failed_login_attempts, locked_until FROM users WHERE email='...';
+│  └─ FIX: UPDATE users SET failed_login_attempts=0, locked_until=NULL WHERE email='...';
+│
+└─ Is the rate limit itself too low?
+   └─ Login: 10/minute per IP (configurable in auth.py @limiter.limit)
+   └─ Reset-password: 3/minute per IP
+```
+
+### S.3 Security headers missing from responses
+
+```
+Symptom: Security scan reports missing headers
+│
+├─ Are you testing via the nginx proxy (port 80)?
+│  └─ Headers are set by both nginx AND Next.js middleware
+│  └─ Direct backend access (port 8000) only has the global exception handler, not nginx headers
+│
+├─ Check nginx.conf has the add_header directives
+│  └─ Verify: curl -D - http://localhost -o /dev/null
+│
+└─ Check Next.js middleware is applying headers
+   └─ File: frontend/middleware.ts — applySecurityHeaders function
+```
+
+### S.4 CSP blocking legitimate resources
+
+```
+Symptom: Browser console shows "Refused to load" errors related to Content-Security-Policy
+│
+├─ Which resource is blocked?
+│  ├─ Script from CDN → Add the CDN domain to script-src in nginx.conf CSP header
+│  ├─ Font from external source → Add to font-src
+│  ├─ Image from external source → Add domain to img-src
+│  └─ API call to external service → Add to connect-src
+│
+├─ Next.js uses inline scripts for hydration
+│  └─ 'unsafe-inline' is included in script-src for this reason
+│  └─ In future: switch to nonce-based CSP for stricter protection
+│
+└─ After changing CSP: test all pages to verify nothing else breaks
+```
+
+### S.5 Swagger/OpenAPI docs not loading
+
+```
+Symptom: http://localhost:8000/api/docs returns 404
+│
+├─ Is ENVIRONMENT set to "production"?
+│  └─ Docs are intentionally disabled in production
+│  └─ For debugging: temporarily set ENVIRONMENT=development and restart
+│
+└─ For local development: ENVIRONMENT should be "development" or unset
+```
+
+---
+
 ## Quick Reference: Common Commands
 
 | Task | Command |
@@ -1001,8 +1081,9 @@ Symptom: Deployed version has critical bug, need to rollback
 | Variable | Where | Purpose |
 |---|---|---|
 | `DATABASE_URL` | Backend | PostgreSQL connection string |
-| `JWT_SECRET` | Backend | JWT signing secret |
+| `JWT_SECRET` | Backend | JWT signing secret (must be 32+ chars in production) |
 | `JWT_EXPIRE_MINUTES` | Backend | Token lifetime (default: 60) |
+| `ENVIRONMENT` | Backend | `development` or `production` (controls docs, secret validation) |
 | `BANNER_MODE` | Backend | `mock` or `live` |
 | `OPENROUTER_API_KEY` | Backend | AI chatbot LLM access |
 | `CORS_ORIGINS` | Backend | Allowed CORS origins |
