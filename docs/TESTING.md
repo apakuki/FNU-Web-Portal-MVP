@@ -226,3 +226,132 @@ All tests should pass (13 backend, 2 frontend).
 ```bash
 ./scripts/stop.sh
 ```
+
+---
+
+## Part 4: Portal Shell, Login UI, and Public Landing
+
+### Prerequisites
+
+- Docker Desktop running
+- Parts 2 and 3 verified (database migrated and seeded)
+
+### Steps
+
+**1. Start the stack**
+
+```bash
+./scripts/start.sh
+```
+
+Wait for all four containers to start, then ensure the database is migrated and seeded:
+
+```bash
+cd backend
+DATABASE_URL=postgresql+asyncpg://fnu:fnu_dev_password@localhost:5432/fnu_portal uv run alembic upgrade head
+DATABASE_URL=postgresql+asyncpg://fnu:fnu_dev_password@localhost:5432/fnu_portal uv run python -m src.backend.seed
+```
+
+**2. Verify the public landing page**
+
+Open http://localhost in a browser. You should see:
+
+- A white header with "Fiji National University", "Apply" link, and "Sign In" button
+- A blue hero section with "Student Services Portal" heading, description text, "Apply Now" (gold button), and "Current Students" (outlined button)
+- Six feature cards: Online Application, Course Registration, Fee Payments, Timetable and Grades, AI Assistant, Digital Student ID
+- A "System Status" section showing health status (should say "ok" for API and Postgres)
+- A dark footer with "Fiji National University Student Services Portal"
+
+**3. Verify the login page**
+
+Click "Sign In" or navigate to http://localhost/login. You should see:
+
+- Centered card with "Sign In" heading in FNU blue
+- Email and Password fields with labels
+- "Sign In" button
+- Fields are required (try submitting empty)
+
+**4. Test login with invalid credentials**
+
+Enter `student@fnu.ac.fj` / `wrongpassword` and click Sign In. You should see:
+
+- Red error message: "Invalid email or password."
+- Form remains on the login page
+
+**5. Test successful login**
+
+Enter `student@fnu.ac.fj` / `student123` and click Sign In. You should land on the dashboard showing:
+
+- Top blue header with "FNU Portal", user name "Apisai Delana", role badge "student", and "Sign Out" button
+- Left sidebar with 9 navigation links: Dashboard, Register, Timetable, My Courses, My Grades, Invoices, Make a Payment, Student ID, Profile
+- "Dashboard" link highlighted (active state)
+- Main area with "Dashboard" heading, welcome message, "Quick Actions" section with 6 clickable widget cards, and an "Announcements" section
+
+**6. Test sidebar navigation**
+
+- Click each sidebar link — the page should navigate and the active link should highlight
+- On desktop (>1024px): sidebar is always visible
+- On mobile (<1024px): sidebar is hidden; tap the hamburger icon (top-left) to slide it open with a dark overlay; tap the overlay or a link to close it
+
+**7. Test mobile responsiveness**
+
+Open browser DevTools, toggle device toolbar (Ctrl/Cmd+Shift+M), and set viewport to 375px wide:
+
+- Landing page: hero text stacks vertically, feature cards become single column
+- Login page: card fits within the viewport with padding
+- Portal shell: sidebar is hidden, hamburger icon is visible, tap targets are at least 44×44px
+
+**8. Test accessibility (keyboard navigation)**
+
+- On the login page, Tab through fields and button — focus outlines should be visible
+- On the portal shell, Tab through sidebar links — each link should receive focus with a visible ring
+- Dashboard widget cards should be focusable (they are links)
+- All navigation elements have `aria-label` or `aria-current` attributes
+
+**9. Test the admin layout**
+
+Login as `admin@fnu.ac.fj` / `admin123`, then navigate to http://localhost/admin. You should see:
+
+- Dark header (not blue) with "FNU Admin"
+- Sidebar with admin links: Admin Dashboard, Applications, Users, KPI Dashboard, Enquiries
+- Main area with "Admin Dashboard" heading and 3 stat cards (Pending Applications, Active Students, Outstanding Fees — all showing "--")
+
+**10. Test the lecturer layout**
+
+Login as `lecturer@fnu.ac.fj` / `lecturer123`, then navigate to http://localhost/lecturer. You should see:
+
+- Blue header with "FNU Lecturer"
+- Sidebar with lecturer links: Lecturer Dashboard, My Courses, Enter Grades
+- Main area with "Lecturer Dashboard" heading and 2 stat cards
+
+**11. Test the outstanding fees banner**
+
+The fees banner is wired to accept a `balanceCents` prop. In the current implementation it is passed `null`, so it should NOT be visible. This will be connected to real data in a later part.
+
+**12. Test logout**
+
+Click "Sign Out" in the header. You should be redirected to `/login`.
+
+**13. Test route protection**
+
+While logged out, try navigating directly to http://localhost/dashboard. You should be redirected to `/login?callbackUrl=%2Fdashboard`.
+
+After logging in, you should be redirected back to `/dashboard` (the original callbackUrl).
+
+**14. Run automated tests**
+
+```bash
+# Backend
+cd backend && uv run pytest tests/ -v
+
+# Frontend
+cd frontend && npx vitest run
+```
+
+All tests should pass (13 backend, 9 frontend).
+
+**15. Stop the stack**
+
+```bash
+./scripts/stop.sh
+```

@@ -135,14 +135,16 @@ Build the Next.js App Router structure for the public landing (SSR for speed), t
 
 ### Substeps
 
-- [ ] Define the route structure: `app/(public)/` for unauthenticated pages (landing, apply, offer/[token], verify/[qr]), `app/(portal)/` for authenticated student pages, `app/(admin)/` for staff/admin pages, `app/(lecturer)/` for lecturer pages
-- [ ] Build the public landing page (Server Component) with FNU branding, links to apply and login
-- [ ] Build login page as a Client Component wrapping next-auth's `signIn`
-- [ ] Build the authenticated portal layout: top nav, side nav, outstanding-fees banner slot
-- [ ] Build the dashboard landing with placeholder widgets: My Account, My Timetable, My Courses, My Grades, Profile
-- [ ] Build logout flow
-- [ ] Ensure WCAG 2.1 AA on public landing, login, and shell (keyboard nav, focus visible, colour contrast)
-- [ ] Ensure mobile responsiveness (min 44px tap targets)
+- [x] Define the route structure: `app/(public)/` for unauthenticated pages (landing, apply, offer/[token], verify/[qr]), `app/(portal)/` for authenticated student pages, `app/(admin)/` for staff/admin pages, `app/(lecturer)/` for lecturer pages
+- [x] Build the public landing page (Server Component) with FNU branding, links to apply and login
+- [x] Build login page as a Client Component wrapping next-auth's `signIn`
+- [x] Build the authenticated portal layout: top nav, side nav, outstanding-fees banner slot
+- [x] Build the dashboard landing with placeholder widgets: Course Registration, My Timetable, My Courses, My Grades, Make a Payment, Student ID
+- [x] Build logout flow
+- [x] Build admin route group layout and placeholder dashboard
+- [x] Build lecturer route group layout and placeholder dashboard
+- [x] Ensure WCAG 2.1 AA on public landing, login, and shell (keyboard nav, focus visible, colour contrast, aria labels)
+- [x] Ensure mobile responsiveness (min 44px tap targets, hamburger sidebar on mobile)
 - [ ] Measure and meet the <3s-on-3G first-paint target on the public landing using Lighthouse
 
 ### Tests
