@@ -14,6 +14,7 @@ from src.backend.banner.types import (
     BannerHealthResponse,
     BannerStudent,
     ClassRoster,
+    CompletedCourse,
     Course,
     CreateInvoiceRequest,
     CreateInvoiceResponse,
@@ -168,6 +169,26 @@ class LiveBannerClient(BannerClient):
                 return None
             raise
         return ClassRoster.model_validate(resp.json())
+
+    async def get_completed_courses(self, banner_student_id: str) -> list[CompletedCourse]:
+        resp = await self._request("GET", f"/students/{banner_student_id}/completed-courses")
+        return [CompletedCourse.model_validate(c) for c in resp.json()]
+
+    async def get_student_registrations(
+        self,
+        banner_student_id: str,
+        semester: str | None = None,
+        year: int | None = None,
+    ) -> list[Offering]:
+        params: dict[str, str | int] = {}
+        if semester:
+            params["semester"] = semester
+        if year:
+            params["year"] = year
+        resp = await self._request(
+            "GET", f"/students/{banner_student_id}/registrations", params=params
+        )
+        return [Offering.model_validate(o) for o in resp.json()]
 
     async def create_student(self, req: CreateStudentRequest) -> CreateStudentResponse:
         resp = await self._request("POST", "/students", json=req.model_dump())

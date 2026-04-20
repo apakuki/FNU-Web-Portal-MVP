@@ -12,6 +12,7 @@ from src.backend.banner.types import (
     BannerStudent,
     Campus,
     ClassRoster,
+    CompletedCourse,
     Course,
     CreateInvoiceRequest,
     CreateInvoiceResponse,
@@ -178,6 +179,15 @@ COURSES: list[Course] = [
         year_level=1,
         semester=Semester.S1,
     ),
+    Course(
+        code="MKT201",
+        name="Marketing Management",
+        credits=15,
+        programme_codes=["BCOM"],
+        year_level=2,
+        semester=Semester.S1,
+        prerequisites=[Prerequisite(course_code="MGT101", min_grade="C")],
+    ),
 ]
 
 OFFERINGS: list[Offering] = [
@@ -254,6 +264,111 @@ OFFERINGS: list[Offering] = [
         end_time="11:00",
         room="CEST-LAB-1",
         capacity=35,
+        enrolled=30,
+    ),
+    Offering(
+        id="OFF-2026-S1-ACC201-NAS",
+        course_code="ACC201",
+        semester=Semester.S1,
+        year=2026,
+        campus=Campus.NASINU,
+        lecturer_name="Dr. Mere Tuisawau",
+        lecturer_banner_id="L00010001",
+        day_of_week="Monday",
+        start_time="10:00",
+        end_time="12:00",
+        room="CBHTS-LT3",
+        capacity=40,
+        enrolled=25,
+    ),
+    Offering(
+        id="OFF-2026-S1-MKT201-NAS",
+        course_code="MKT201",
+        semester=Semester.S1,
+        year=2026,
+        campus=Campus.NASINU,
+        lecturer_name="Prof. Josefa Rakesa",
+        lecturer_banner_id="L00010002",
+        day_of_week="Monday",
+        start_time="11:00",
+        end_time="13:00",
+        room="CBHTS-LT4",
+        capacity=50,
+        enrolled=35,
+    ),
+    Offering(
+        id="OFF-2026-S1-ECN101-NAS",
+        course_code="ECN101",
+        semester=Semester.S1,
+        year=2026,
+        campus=Campus.NASINU,
+        lecturer_name="Dr. Ravi Kumar",
+        lecturer_banner_id="L00010006",
+        day_of_week="Tuesday",
+        start_time="14:00",
+        end_time="16:00",
+        room="CBHTS-LT5",
+        capacity=50,
+        enrolled=35,
+    ),
+    Offering(
+        id="OFF-2026-S1-IT102-NAS",
+        course_code="IT102",
+        semester=Semester.S1,
+        year=2026,
+        campus=Campus.NASINU,
+        lecturer_name="Ms. Priya Nair",
+        lecturer_banner_id="L00010007",
+        day_of_week="Friday",
+        start_time="10:00",
+        end_time="12:00",
+        room="CEST-LAB-2",
+        capacity=35,
+        enrolled=20,
+    ),
+    Offering(
+        id="OFF-2026-S1-NUR201-SUV",
+        course_code="NUR201",
+        semester=Semester.S1,
+        year=2026,
+        campus=Campus.SUVA,
+        lecturer_name="Dr. Jone Tagivetaua",
+        lecturer_banner_id="L00010008",
+        day_of_week="Wednesday",
+        start_time="09:00",
+        end_time="11:00",
+        room="CMNHS-CL1",
+        capacity=30,
+        enrolled=22,
+    ),
+    Offering(
+        id="OFF-2026-S1-CHM101-NAS",
+        course_code="CHM101",
+        semester=Semester.S1,
+        year=2026,
+        campus=Campus.NASINU,
+        lecturer_name="Dr. Alumita Waqa",
+        lecturer_banner_id="L00010003",
+        day_of_week="Wednesday",
+        start_time="14:00",
+        end_time="16:00",
+        room="CEST-SCI-102",
+        capacity=40,
+        enrolled=30,
+    ),
+    Offering(
+        id="OFF-2026-S1-EDU101-NAS",
+        course_code="EDU101",
+        semester=Semester.S1,
+        year=2026,
+        campus=Campus.NASINU,
+        lecturer_name="Ms. Salome Liku",
+        lecturer_banner_id="L00010009",
+        day_of_week="Thursday",
+        start_time="13:00",
+        end_time="15:00",
+        room="CBHTS-R5",
+        capacity=45,
         enrolled=30,
     ),
 ]
@@ -433,6 +548,34 @@ INVOICES: list[Invoice] = [
 ]
 
 
+COMPLETED_COURSES: dict[str, list[CompletedCourse]] = {
+    "S00012345": [
+        CompletedCourse(
+            course_code="ACC101", course_name="Introduction to Accounting",
+            grade="B", credits=15, semester=Semester.S1, year=2025,
+        ),
+        CompletedCourse(
+            course_code="MGT101", course_name="Principles of Management",
+            grade="A-", credits=15, semester=Semester.S1, year=2025,
+        ),
+        CompletedCourse(
+            course_code="ECN101", course_name="Microeconomics",
+            grade="B+", credits=15, semester=Semester.S2, year=2025,
+        ),
+    ],
+    "S00012346": [
+        CompletedCourse(
+            course_code="NUR101", course_name="Foundations of Nursing",
+            grade="A", credits=15, semester=Semester.S1, year=2025,
+        ),
+        CompletedCourse(
+            course_code="BIO101", course_name="General Biology",
+            grade="B+", credits=15, semester=Semester.S1, year=2025,
+        ),
+    ],
+}
+
+
 class MockBannerClient(BannerClient):
     """In-memory mock of Ellucian Banner for development and testing."""
 
@@ -517,6 +660,22 @@ class MockBannerClient(BannerClient):
             campus=offering.campus,
             entries=entries,
         )
+
+    async def get_completed_courses(self, banner_student_id: str) -> list[CompletedCourse]:
+        return list(COMPLETED_COURSES.get(banner_student_id, []))
+
+    async def get_student_registrations(
+        self,
+        banner_student_id: str,
+        semester: str | None = None,
+        year: int | None = None,
+    ) -> list[Offering]:
+        registered_ids = [
+            r["offering_id"] for r in self._registrations
+            if r["banner_student_id"] == banner_student_id
+        ]
+        offerings = await self.get_offerings(semester=semester, year=year)
+        return [o for o in offerings if o.id in registered_ids]
 
     async def create_student(self, req: CreateStudentRequest) -> CreateStudentResponse:
         banner_id = f"S{self._next_student_seq:08d}"

@@ -10,6 +10,7 @@ from src.backend.banner.types import (
     BannerHealthResponse,
     BannerStudent,
     ClassRoster,
+    CompletedCourse,
     Course,
     CreateInvoiceRequest,
     CreateInvoiceResponse,
@@ -66,6 +67,17 @@ class CachedBannerClient(BannerClient):
 
     async def get_class_roster(self, offering_id: str) -> ClassRoster | None:
         return await self._inner.get_class_roster(offering_id)
+
+    async def get_completed_courses(self, banner_student_id: str) -> list[CompletedCourse]:
+        return await self._inner.get_completed_courses(banner_student_id)
+
+    async def get_student_registrations(
+        self,
+        banner_student_id: str,
+        semester: str | None = None,
+        year: int | None = None,
+    ) -> list[Offering]:
+        return await self._inner.get_student_registrations(banner_student_id, semester, year)
 
     async def create_student(self, req: CreateStudentRequest) -> CreateStudentResponse:
         return await self._inner.create_student(req)

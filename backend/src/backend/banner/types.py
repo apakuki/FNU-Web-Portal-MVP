@@ -121,6 +121,15 @@ class ClassRoster(BaseModel):
     entries: list[RosterEntry]
 
 
+class CompletedCourse(BaseModel):
+    course_code: str
+    course_name: str
+    grade: str
+    credits: int
+    semester: Semester
+    year: int
+
+
 class CreateStudentRequest(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)

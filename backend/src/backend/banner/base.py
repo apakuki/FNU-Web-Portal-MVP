@@ -4,6 +4,7 @@ from src.backend.banner.types import (
     BannerHealthResponse,
     BannerStudent,
     ClassRoster,
+    CompletedCourse,
     Course,
     CreateInvoiceRequest,
     CreateInvoiceResponse,
@@ -53,6 +54,16 @@ class BannerClient(ABC):
 
     @abstractmethod
     async def get_class_roster(self, offering_id: str) -> ClassRoster | None:
+        ...
+
+    @abstractmethod
+    async def get_completed_courses(self, banner_student_id: str) -> list[CompletedCourse]:
+        ...
+
+    @abstractmethod
+    async def get_student_registrations(
+        self, banner_student_id: str, semester: str | None = None, year: int | None = None
+    ) -> list[Offering]:
         ...
 
     # -- writes --
