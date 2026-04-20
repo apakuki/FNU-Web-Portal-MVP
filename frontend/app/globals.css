@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@layer components {
+  .input-field {
+    @apply w-full rounded border border-gray/30 px-3 py-2 text-dark focus:border-fnu-blue focus:outline-none focus:ring-1 focus:ring-fnu-blue;
+  }
+}
+
 @theme {
   --color-fnu-blue: #003A70;
   --color-fnu-gold: #FFB81C;

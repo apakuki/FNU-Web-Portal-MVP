@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from src.backend.api.applications import router as applications_router
 from src.backend.api.auth import router as auth_router
 from src.backend.api.banner import router as banner_router
 from src.backend.api.health import router as health_router
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
     app.include_router(banner_router, prefix="/api")
+    app.include_router(applications_router, prefix="/api")
 
     return app
 

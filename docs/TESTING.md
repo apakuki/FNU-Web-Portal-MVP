@@ -569,6 +569,243 @@ All tests should pass (47 backend).
 
 ---
 
+## Part 6: New-Student Application Flow
+
+### Prerequisites
+
+- Docker Desktop running
+- Parts 2-5 verified (database migrated and seeded)
+
+### Steps
+
+**1. Start the stack**
+
+```bash
+./scripts/start.sh
+```
+
+Wait for all containers, then ensure the database is migrated and seeded:
+
+```bash
+cd backend
+DATABASE_URL=postgresql+asyncpg://fnu:fnu_dev_password@localhost:5432/fnu_portal uv run alembic upgrade head
+DATABASE_URL=postgresql+asyncpg://fnu:fnu_dev_password@localhost:5432/fnu_portal uv run python -m src.backend.seed
+```
+
+**2. Verify the public application page loads**
+
+Open http://localhost/apply in a browser. You should see:
+
+- A multi-step form starting with "Contact Information"
+- Step indicators at the top: Contact, Personal, Qualifications, Programme, Review
+- "Contact" step highlighted as active
+- An email field and a Next button
+
+**3. Test form validation — empty email**
+
+Click "Next" without entering an email. You should see:
+
+- Red error message: "Email is required"
+- Form stays on the Contact step
+
+**4. Test step progression — Contact to Personal**
+
+Enter a valid email (e.g. `jane@email.com`) and click "Next". You should see:
+
+- Step 2: "Personal Details" with fields for First Name, Last Name, Date of Birth, Gender, Nationality, Address
+- "Contact" step indicator marked as completed
+- "Back" button now visible
+
+**5. Test back navigation**
+
+Click "Back". You should return to the Contact step with the email preserved.
+
+**6. Test Personal Details validation**
+
+Navigate to Personal Details (step 2), leave fields empty, and click "Next". You should see:
+
+- Validation errors for required fields (e.g. "First name is required")
+
+**7. Complete Personal Details**
+
+Fill in: First Name "Jane", Last Name "Doe", DOB "2000-01-15", Gender "Female", Nationality "Fijian", Address "123 Main St, Suva". Click "Next".
+
+You should advance to step 3: "Qualifications".
+
+**8. Test Qualifications step**
+
+- Default: one qualification entry with fields for Institution, Qualification, Year Completed, Grade
+- Click "Add Qualification" — a second entry should appear
+- Click "Remove" on the second entry — it should disappear
+- Fill in: Institution "Suva Grammar School", Qualification "Year 13", Year "2023", Grade "A"
+- Click "Next" to advance to Programme Selection
+
+**9. Test Programme Selection**
+
+- Select a programme (e.g. "BCOM") and campus (e.g. "Nasinu")
+- Click "Next" to advance to Review
+
+**10. Test Review step**
+
+The review summary should show all entered data:
+
+- Email, phone
+- Personal details (name, DOB, gender, nationality, address)
+- Qualifications list
+- Programme and campus selection
+- A "Submit Application" button
+
+**11. Test application submission via API**
+
+```bash
+curl -s http://localhost/api/applications \
+  -X POST -H "Content-Type: application/json" \
+  -d '{
+    "applicant_email": "jane@email.com",
+    "applicant_phone": "+6799991234",
+    "personal_details": {
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "date_of_birth": "2000-01-15",
+      "gender": "female",
+      "nationality": "Fijian",
+      "address": "123 Main St, Suva"
+    },
+    "prior_qualifications": [{
+      "institution": "Suva Grammar School",
+      "qualification": "Year 13",
+      "year_completed": 2023,
+      "grade": "A"
+    }],
+    "programme_preference": "BCOM",
+    "campus_preference": "Nasinu"
+  }' | python3 -m json.tool
+```
+
+Expected: 200 response with `application_number` (format: APP-2026-NNNNNN), `id`, `status: "submitted"`.
+
+**12. Test input validation via API**
+
+```bash
+# Missing email — should return 422
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/applications \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"personal_details":{"first_name":"Jane","last_name":"Doe","date_of_birth":"2000-01-15","gender":"female","nationality":"Fijian","address":"123 Main St"},"prior_qualifications":[{"institution":"School","qualification":"Y13","year_completed":2023,"grade":"A"}],"programme_preference":"BCOM","campus_preference":"Nasinu"}'
+
+# Invalid email — should return 422
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/applications \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"applicant_email":"not-an-email","personal_details":{"first_name":"Jane","last_name":"Doe","date_of_birth":"2000-01-15","gender":"female","nationality":"Fijian","address":"123 Main St"},"prior_qualifications":[{"institution":"School","qualification":"Y13","year_completed":2023,"grade":"A"}],"programme_preference":"BCOM","campus_preference":"Nasinu"}'
+
+# Empty qualifications — should return 422
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/applications \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"applicant_email":"jane@email.com","personal_details":{"first_name":"Jane","last_name":"Doe","date_of_birth":"2000-01-15","gender":"female","nationality":"Fijian","address":"123 Main St"},"prior_qualifications":[],"programme_preference":"BCOM","campus_preference":"Nasinu"}'
+```
+
+**13. Test document upload security**
+
+```bash
+# Valid PDF upload — should return 200
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/applications/documents \
+  -F "file=@/dev/stdin;filename=test.pdf;type=application/pdf" \
+  -F "document_type=transcript" <<< "%PDF-1.4 test content"
+
+# Wrong MIME type — should return 400
+curl -s http://localhost/api/applications/documents \
+  -F "file=@/dev/stdin;filename=test.exe;type=application/x-msdownload" \
+  -F "document_type=transcript" <<< "MZ executable"
+
+# Magic byte mismatch (claims PDF but isn't) — should return 400
+curl -s http://localhost/api/applications/documents \
+  -F "file=@/dev/stdin;filename=fake.pdf;type=application/pdf" \
+  -F "document_type=transcript" <<< "NOT_A_PDF"
+```
+
+**14. Test admin application queue**
+
+Login as `staff@fnu.ac.fj` / `staff123`, then navigate to http://localhost/admin/applications. You should see:
+
+- "Applications" heading with total count
+- Status filter dropdown (All, Submitted, Under Review, etc.)
+- Table with columns: App #, Email, Programme, Campus, Status, Submitted, Review link
+- Pagination controls if more than 20 applications
+
+**15. Test admin application detail**
+
+Click "Review" on any application. You should see:
+
+- Application number and submission date
+- Status badge (colour-coded)
+- Four sections: Applicant details, Programme info, Documents list, Actions panel
+- Action dropdown with options: Mark Under Review, Request Documents, Approve, Approve (Conditional), Reject
+- Selecting an action reveals a reason textarea and Confirm button
+- "Reject" and "Request Documents" show "Reason (required)" placeholder
+
+**16. Test status update via API**
+
+```bash
+TOKEN=$(curl -s http://localhost/api/auth/login \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"email":"staff@fnu.ac.fj","password":"staff123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Get application list
+curl -s http://localhost/api/admin/applications \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+# Update status (replace <ID> with actual application ID)
+curl -s http://localhost/api/admin/applications/<ID>/status \
+  -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"status":"under_review"}' | python3 -m json.tool
+```
+
+**17. Test offer flow**
+
+After approving an application, an offer token is generated. Test the offer page:
+
+- Check the offers table for the token:
+  ```bash
+  docker exec docker-postgres-1 psql -U fnu -d fnu_portal \
+    -c "SELECT token, expires_at, accepted_at FROM offers ORDER BY created_at DESC LIMIT 1;"
+  ```
+- Navigate to http://localhost/offer/<TOKEN> — you should see the offer details with Accept and Decline buttons
+- Click "Accept" — the page should update to show "Offer Accepted" confirmation
+- Revisiting the same URL should show "Already responded"
+
+**18. Test rate limiting on application submission**
+
+```bash
+for i in $(seq 1 7); do
+  curl -s -o /dev/null -w "Attempt $i: HTTP %{http_code}\n" \
+    http://localhost/api/applications \
+    -X POST -H "Content-Type: application/json" \
+    -d '{"applicant_email":"test'$i'@email.com","personal_details":{"first_name":"Test","last_name":"User","date_of_birth":"2000-01-15","gender":"male","nationality":"Fijian","address":"Suva"},"prior_qualifications":[{"institution":"School","qualification":"Y13","year_completed":2023,"grade":"A"}],"programme_preference":"BCOM","campus_preference":"Nasinu"}'
+done
+```
+
+Expected: first 5 succeed (200 or 500 if DB not available), attempt 6+ returns 429.
+
+**19. Run automated tests**
+
+```bash
+# Backend (76 tests)
+cd backend && uv run pytest tests/ -v
+
+# Frontend (15 tests)
+cd frontend && npx vitest run
+```
+
+All tests should pass.
+
+**20. Stop the stack**
+
+```bash
+./scripts/stop.sh
+```
+
+---
+
 ## Security Verification Checklist (All Parts)
 
 Run this checklist before any production deployment or after any security-related change.

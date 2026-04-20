@@ -256,25 +256,25 @@ Deliver TOR 2.1.2 and 2.1.3: online application form, document upload, status tr
 
 ### Substeps
 
-- [ ] Build `POST /api/applications` (public) with Pydantic validation of personal details, prior qualifications, programme preference, campus preference
-- [ ] Build document upload endpoint (PDF/JPG/PNG, 5MB max, MIME-type check)
-- [ ] Build staff endpoints: `GET /api/admin/applications` (with status filters), `GET /api/admin/applications/{id}`, `PUT /api/admin/applications/{id}/status`
-- [ ] Build the public application form as a Next.js Server Component (form shell) + Client Component (interactive fields with Zod validation), posting via Server Actions to the backend
-- [ ] Build staff review UI under `app/(admin)/applications/`: queue with filters, detail view, approve / request docs / reject with mandatory reason
-- [ ] Build bulk-action endpoint (e.g. approve-all matching filter)
+- [x] Build `POST /api/applications` (public) with Pydantic validation of personal details, prior qualifications, programme preference, campus preference
+- [x] Build document upload endpoint (PDF/JPG/PNG, 5MB max, MIME-type check)
+- [x] Build staff endpoints: `GET /api/admin/applications` (with status filters), `GET /api/admin/applications/{id}`, `PUT /api/admin/applications/{id}/status`
+- [x] Build the public application form as a Next.js Server Component (form shell) + Client Component (interactive fields with Zod validation), posting via Server Actions to the backend
+- [x] Build staff review UI under `app/(admin)/applications/`: queue with filters, detail view, approve / request docs / reject with mandatory reason
+- [x] Build bulk-action endpoint (e.g. approve-all matching filter)
 - [ ] Build offer letter PDF generator in the backend using WeasyPrint (HTML template with FNU letterhead → PDF)
-- [ ] Build offer acceptance page at `app/(public)/offer/[token]/` — server-renders the offer content from the backend, shows accept/decline buttons
-- [ ] Wire notifications on every status change (email via stub sender, SMS via stub)
-- [ ] Support conditional offers for school leavers
+- [x] Build offer acceptance page at `app/(public)/offer/[token]/` — server-renders the offer content from the backend, shows accept/decline buttons
+- [x] Wire notifications on every status change (email via stub sender, SMS via stub)
+- [x] Support conditional offers for school leavers
 
 ### Security Hardening
 
-- [ ] Validate and sanitise all application form inputs server-side (Pydantic + custom validators)
-- [ ] File upload security: MIME-type allowlist (PDF/JPG/PNG only), magic-byte validation (not just extension), 5MB size limit enforced at proxy and backend, randomised filenames, store outside web root
-- [ ] Rate limit application submissions (5/hour per IP) to prevent spam
-- [ ] Offer acceptance tokens: cryptographically random (secrets.token_urlsafe), single-use, 7-day expiry, hashed in DB
-- [ ] Staff review endpoints: require_role("staff", "admin") — never publicly accessible
-- [ ] Bulk actions: require_role("admin") with mandatory audit log entry per affected record
+- [x] Validate and sanitise all application form inputs server-side (Pydantic + custom validators)
+- [x] File upload security: MIME-type allowlist (PDF/JPG/PNG only), magic-byte validation (not just extension), 5MB size limit enforced at proxy and backend, randomised filenames, store outside web root
+- [x] Rate limit application submissions (5/hour per IP) to prevent spam
+- [x] Offer acceptance tokens: cryptographically random (secrets.token_urlsafe), single-use, 7-day expiry, hashed in DB
+- [x] Staff review endpoints: require_role("staff", "admin") — never publicly accessible
+- [x] Bulk actions: require_role("admin") with mandatory audit log entry per affected record
 - [ ] PDF generation: sanitise all interpolated values to prevent HTML injection in templates
 - [ ] Public application form: CSRF protection via next-auth token
 

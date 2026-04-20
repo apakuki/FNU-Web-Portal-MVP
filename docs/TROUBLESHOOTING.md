@@ -591,24 +591,135 @@ Symptom: Slow Banner responses or TimeoutError in logs
 ### 6.1 Application form submission fails
 
 ```
-Symptom: POST /api/applications returns 400 or 500
+Symptom: POST /api/applications returns 400, 422, or 500
 │
-├─ 400 Bad Request → Validation error
+├─ 422 Unprocessable Entity → Pydantic validation error
 │  └─ Check response body for field-level errors
-│  └─ Required fields: personal details, programme preference, campus
+│  └─ Common issues:
+│     ├─ Missing applicant_email → required field
+│     ├─ Invalid email format → must be a valid email (EmailStr)
+│     ├─ Empty prior_qualifications → at least 1 required (min_length=1)
+│     ├─ Missing personal_details → all fields required
+│     ├─ Name too long → max 100 characters
+│     └─ Invalid date_of_birth → must be YYYY-MM-DD format
 │
-├─ 413 Payload Too Large → Document upload exceeds 5MB
-│  └─ FIX: Compress or resize document before uploading
-│  └─ Check nginx client_max_body_size is set (proxy level)
+├─ 429 Too Many Requests → Rate limited (5 applications/hour per IP)
+│  └─ Wait and retry later
+│  └─ Check: slowapi rate limiter on POST /api/applications
 │
-├─ 415 Unsupported Media Type → Wrong document format
-│  └─ Allowed: PDF, JPG, PNG only
+├─ 500 Internal Server Error → Backend bug
+│  └─ Check: docker compose logs backend
+│  └─ Common: database connection issue
+│     └─ Is postgres running? docker compose ps
+│     └─ Are migrations applied? alembic upgrade head
 │
-└─ 500 Internal Server Error → Backend bug
-   └─ Check: docker compose logs backend
+└─ Application number format: APP-YYYY-NNNNNN (auto-generated)
 ```
 
-### 6.2 Offer PDF not generating
+### 6.2 Document upload fails
+
+```
+Symptom: POST /api/applications/documents returns 400
+│
+├─ "not allowed" in error → MIME type rejected
+│  └─ Only allowed: application/pdf, image/jpeg, image/png
+│  └─ FIX: Convert document to PDF, JPG, or PNG before uploading
+│
+├─ "does not match" in error → Magic byte mismatch
+│  └─ File claims to be PDF/JPG/PNG but content doesn't match
+│  └─ Common: renamed .txt or .exe file to .pdf
+│  └─ FIX: Use a genuine PDF/image file, not a renamed file
+│
+├─ "5MB" in error → File too large
+│  └─ Maximum file size: 5 MB (MAX_FILE_SIZE = 5 * 1024 * 1024)
+│  └─ FIX: Compress or resize the document
+│  └─ Note: nginx also limits at 10MB (client_max_body_size)
+│
+├─ 429 Too Many Requests → Rate limited (20 uploads/hour per IP)
+│  └─ Wait and retry
+│
+└─ Invalid document_type → Must be one of the recognised types
+   └─ Valid types: transcript, id_document, passport_photo, other
+```
+
+### 6.3 Admin application queue not loading
+
+```
+Symptom: /admin/applications shows error or empty
+│
+├─ Authentication issue?
+│  └─ Must be logged in as staff or admin role
+│  └─ Check: user role in database
+│     SELECT email, role FROM users WHERE email='staff@fnu.ac.fj';
+│
+├─ API returning error?
+│  └─ Check browser DevTools > Network > /api/admin/applications
+│  └─ 401 → Token expired, re-login
+│  └─ 403 → Insufficient role (need staff or admin)
+│  └─ 500 → Backend error, check docker compose logs backend
+│
+├─ Status filter not working?
+│  └─ Check: query parameter format ?status=submitted
+│  └─ Valid values: submitted, under_review, awaiting_documents,
+│     approved, conditionally_approved, rejected
+│
+└─ Pagination issue?
+   └─ Default: 20 per page
+   └─ Check total count in response header
+```
+
+### 6.4 Status update / approval fails
+
+```
+Symptom: PUT /api/admin/applications/{id}/status returns error
+│
+├─ 400 Bad Request → Validation issue
+│  └─ Is a reason provided for reject/awaiting_documents?
+│     └─ These statuses REQUIRE a reason field
+│  └─ Is the status value valid?
+│     └─ Valid: submitted, under_review, awaiting_documents,
+│        approved, conditionally_approved, rejected
+│
+├─ 404 Not Found → Application ID doesn't exist
+│  └─ Check the ID in the URL matches an existing application
+│  └─ docker exec docker-postgres-1 psql -U fnu -d fnu_portal \
+│     -c "SELECT id, application_number FROM applications;"
+│
+├─ 403 Forbidden → Role not authorised
+│  └─ Status updates require staff or admin role
+│  └─ Bulk actions require admin role only
+│
+└─ Offer not created after approval?
+   └─ Offers are auto-created on approve/conditionally_approved
+   └─ Check: SELECT * FROM offers ORDER BY created_at DESC LIMIT 1;
+   └─ Token is hashed in DB — the raw token is in the API response
+```
+
+### 6.5 Offer page not loading or expired
+
+```
+Symptom: /offer/<token> shows error or "expired"
+│
+├─ "Offer has expired" → Token is older than 7 days
+│  └─ OFFER_TOKEN_EXPIRY_DAYS = 7
+│  └─ Check: SELECT expires_at FROM offers WHERE id='...';
+│  └─ Applicant must contact admissions for a new offer
+│
+├─ "Already responded" → Offer was already accepted or declined
+│  └─ Offers are single-use
+│  └─ Check: SELECT accepted_at, declined_at FROM offers WHERE id='...';
+│
+├─ 404 → Token not found or invalid
+│  └─ Token is SHA256 hashed in DB for security
+│  └─ The URL token must match the original generated token exactly
+│  └─ Tokens are 48-byte URL-safe random strings (secrets.token_urlsafe(48))
+│
+└─ Page loads but buttons don't work?
+   └─ Check browser DevTools > Console for JavaScript errors
+   └─ Check Network tab for POST /api/offers/<token>/accept response
+```
+
+### 6.6 Offer PDF not generating
 
 ```
 Symptom: Offer letter PDF endpoint returns error
@@ -621,6 +732,25 @@ Symptom: Offer letter PDF endpoint returns error
 │
 └─ FNU letterhead image missing?
    └─ Check the template references a valid image path
+```
+
+### 6.7 Notifications not logged after application events
+
+```
+Symptom: No notification records created after submission/approval
+│
+├─ Notification service is currently a stub (logs to DB only)
+│  └─ No actual emails/SMS sent in this part
+│  └─ Check: SELECT * FROM notifications ORDER BY created_at DESC LIMIT 5;
+│
+├─ Database error during notification write?
+│  └─ Notifications are fire-and-forget (asyncio.create_task)
+│  └─ Errors won't block the main request
+│  └─ Check backend logs for notification errors
+│
+└─ Notification table missing?
+   └─ Run: alembic upgrade head
+   └─ Check: \dt notifications in psql
 ```
 
 ---
