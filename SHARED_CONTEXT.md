@@ -97,11 +97,11 @@ FNU Web Portal MVP/
         ├── (portal)/             # Authenticated student shell
         │   ├── layout.tsx        # Header + sidebar + OutstandingFeesBanner
         │   ├── dashboard/page.tsx
-        │   ├── register/page.tsx         # Course selection with prereq/clash UI
-        │   ├── timetable/        # (Part 7 — to be added)
-        │   ├── courses/          # (Part 7 — to be added)
-        │   ├── grades/           # (Part 7 — to be added)
-        │   └── invoices/         # (Part 7 — to be added)
+        │   ├── register/page.tsx         # Course selection with prereq/clash UI (Client)
+        │   ├── timetable/page.tsx        # Weekly timetable + .ics export (Server Component)
+        │   ├── courses/page.tsx          # Registered courses list (Server Component)
+        │   ├── grades/page.tsx           # Grades + GPA summary (Server Component)
+        │   └── invoices/page.tsx         # Invoice list + PDF download (Server Component)
         ├── (admin)/              # Staff/admin shell
         │   ├── layout.tsx
         │   ├── admin/page.tsx                        # Admin dashboard
@@ -189,6 +189,7 @@ FNU Web Portal MVP/
 | `calculate_gpa` | `api/registration.py` | `(courses: list[CompletedCourse]) -> float` — weighted by credits |
 | `calculate_semester_gpas` | `api/registration.py` | `(courses) -> dict[str, float]` — keyed "YYYY-S1" |
 | `calculate_registration_fees` | `api/registration.py` | `(programme_code, num_courses, fee_items) -> list[FeeItem]` — partial-load pricing |
+| `_invoice_html` | `api/registration.py` | `(inv: InvoiceOut) -> str` — HTML template for WeasyPrint PDF generation |
 
 ### Frontend (`frontend/`)
 
@@ -355,4 +356,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 7 in progress (Course Registration, Timetable, Invoicing).*
+*Last updated: Part 7 complete (Course Registration, Timetable, Invoicing). Part 8 (Payment Gateway) is next.*

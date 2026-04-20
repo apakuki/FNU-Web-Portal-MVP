@@ -308,29 +308,29 @@ Deliver TOR 2.1.4, 2.1.5, 2.1.7, 2.1.8, 2.1.9: programme display, course selecti
 
 ### Substeps
 
-- [ ] Build `GET /api/programme` returning approved programme with structure (core + elective) from Banner
-- [ ] Build `GET /api/courses` listing selectable courses filtered by programme rules, semester availability, prereq status
-- [ ] Implement prereq validator — evaluates completed/exempted courses against each candidate course; returns reason-blocked where applicable
-- [ ] Implement timetable clash detector over offerings
-- [ ] Implement credit-point tracker vs programme requirements
-- [ ] Build `POST /api/registration/confirm` — atomic: Banner register, invoice create, student_id activate, roster write
-- [ ] Build `GET /api/invoices`, `GET /api/invoices/{id}.pdf` (WeasyPrint, itemised course-level breakdown)
-- [ ] Build `GET /api/timetable` and `/api/timetable.ics` export
-- [ ] Build `GET /api/grades` with cumulative and semester GPA
-- [ ] Build `GET /api/my-courses` — registered courses with Moodle link, assessment schedule, lecturer contact
-- [ ] Build Next.js pages for each: `app/(portal)/register/`, `app/(portal)/timetable/`, `app/(portal)/courses/`, `app/(portal)/grades/`, `app/(portal)/invoices/`
-- [ ] Use Server Components for read-only views (timetable, courses, grades) to avoid shipping JS for data that doesn't change client-side
-- [ ] Use Client Components for the course-selection flow (interactive prereq checks, clash warnings, confirm step)
-- [ ] Partial-load pricing: invoice is sum of course fees, not programme flat fee
+- [x] Build `GET /api/programme` returning approved programme with structure (core + elective) from Banner
+- [x] Build `GET /api/courses` listing selectable courses filtered by programme rules, semester availability, prereq status
+- [x] Implement prereq validator — evaluates completed/exempted courses against each candidate course; returns reason-blocked where applicable
+- [x] Implement timetable clash detector over offerings
+- [x] Implement credit-point tracker vs programme requirements
+- [x] Build `POST /api/registration/confirm` — atomic: Banner register, invoice create, student_id activate, roster write
+- [x] Build `GET /api/invoices`, `GET /api/invoices/{id}.pdf` (WeasyPrint, itemised course-level breakdown)
+- [x] Build `GET /api/timetable` and `/api/timetable.ics` export
+- [x] Build `GET /api/grades` with cumulative and semester GPA
+- [x] Build `GET /api/my-courses` — registered courses with Moodle link, assessment schedule, lecturer contact
+- [x] Build Next.js pages for each: `app/(portal)/register/`, `app/(portal)/timetable/`, `app/(portal)/courses/`, `app/(portal)/grades/`, `app/(portal)/invoices/`
+- [x] Use Server Components for read-only views (timetable, courses, grades) to avoid shipping JS for data that doesn't change client-side
+- [x] Use Client Components for the course-selection flow (interactive prereq checks, clash warnings, confirm step)
+- [x] Partial-load pricing: invoice is sum of course fees, not programme flat fee
 
 ### Security Hardening
 
-- [ ] Registration confirm is atomic — partial failures must roll back (no orphaned Banner writes)
-- [ ] All registration endpoints enforce require_role("student") — students can only register themselves
-- [ ] Invoice PDF generation: sanitise all interpolated values; validate invoice belongs to requesting user
-- [ ] Timetable/grades endpoints: scope queries to authenticated user's ID (prevent IDOR)
-- [ ] .ics export: validate output contains no PII beyond what the student should see
-- [ ] Rate limit registration confirm (3/minute per user) to prevent accidental double-registration
+- [x] Registration confirm is atomic — partial failures must roll back (no orphaned Banner writes)
+- [x] All registration endpoints enforce require_role("student") — students can only register themselves
+- [x] Invoice PDF generation: sanitise all interpolated values; validate invoice belongs to requesting user
+- [x] Timetable/grades endpoints: scope queries to authenticated user's ID (prevent IDOR)
+- [x] .ics export: validate output contains no PII beyond what the student should see
+- [x] Rate limit registration confirm (3/minute per user) to prevent accidental double-registration
 
 ### Tests
 

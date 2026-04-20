@@ -806,6 +806,232 @@ All tests should pass.
 
 ---
 
+## Part 7: Course Registration, Timetable, Invoicing
+
+### Prerequisites
+
+- Docker Desktop running
+- Parts 2–6 verified (database migrated and seeded)
+
+### Steps
+
+**1. Start the stack**
+
+```bash
+./scripts/start.sh
+```
+
+Wait for all containers, then ensure the database is migrated and seeded.
+
+**2. Verify the programme endpoint**
+
+```bash
+TOKEN=$(curl -s http://localhost/api/auth/login \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"email":"student@fnu.ac.fj","password":"student123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+curl -s http://localhost/api/programme \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+```
+
+Expected: programme structure for BCOM with `code`, `name`, `level`, `college`, `total_credits`, `completed_credits`, and a `courses` array of offerings with `prereqs_met`, `prereq_issues`, `available`, etc.
+
+**3. Verify the courses endpoint**
+
+```bash
+curl -s "http://localhost/api/courses?semester=S1&year=2026" \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+```
+
+Expected: array of courses with offerings, `prereqs_met` and `prereq_issues` per course.
+
+**4. Test the Course Registration page**
+
+Login as `student@fnu.ac.fj` / `student123`, navigate to http://localhost/register. You should see:
+
+- Page heading "Course Registration" with BCOM credits progress
+- Table of available offerings with columns: Select, Course, Day / Time, Room, Lecturer, Seats, Status
+- Available courses show green "Available" badge; blocked courses show "Prereqs not met" detail
+- For Apisai (BCOM, S00012345): ACC101 and MGT101 should be blocked ("already completed"); ACC201 should be available with prereqs_met
+
+**5. Test prereq blocking UI**
+
+Courses where prerequisites are not met should have the checkbox disabled and display the specific reason (e.g. "ACC101 not completed").
+
+**6. Test clash detection (client-side)**
+
+Select two offerings that clash (ACC101 Mon 09-11 and ACC201 Mon 10-12). A red warning banner should appear listing the clash before you even click Confirm.
+
+**7. Test registration confirmation**
+
+Select 2 non-clashing courses (e.g. ACC201 Mon and MGT101 Tue). Click "Confirm Registration". Expected:
+
+- Success screen with green "Registration Confirmed" banner
+- Lists the registered course codes
+- Shows invoice ID and total fee (e.g. FJ$1,890.00 for 2 courses at partial load pricing)
+
+**8. Test double-registration prevention (API)**
+
+```bash
+# Try registering the same offering twice
+curl -s http://localhost/api/registration/confirm \
+  -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"offering_ids":["acc201-offering-uuid"],"semester":"S1","year":2026}' \
+  | python3 -m json.tool
+```
+
+A second identical request should return 400 or be idempotent depending on Banner mock behaviour.
+
+**9. Test server-side clash rejection (API)**
+
+```bash
+curl -s http://localhost/api/registration/confirm \
+  -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"offering_ids":["<acc101-id>","<acc201-id>"],"semester":"S1","year":2026}' \
+  | python3 -m json.tool
+```
+
+Expected: success=false with `clashes` array containing details of the overlap.
+
+**10. Verify the Timetable page**
+
+Navigate to http://localhost/timetable. You should see:
+
+- Heading "My Timetable — Semester 1, 2026"
+- Registered courses grouped by day (Monday, Tuesday, etc.)
+- Each entry shows time, course code, room, campus, lecturer
+- "Export to Calendar (.ics)" button visible in top-right
+
+**11. Test .ics export**
+
+Click "Export to Calendar (.ics)". A `timetable.ics` file should download. Open it in a text editor and verify:
+
+- `BEGIN:VCALENDAR` header present
+- `RRULE:FREQ=WEEKLY;COUNT=14` for each course
+- `TZID=Pacific/Fiji` in the DTSTART line
+- One `VEVENT` block per registered course
+
+Try importing the file into Google Calendar or macOS Calendar — events should appear on the correct days for 14 weeks.
+
+**12. Verify the My Courses page**
+
+Navigate to http://localhost/courses. You should see:
+
+- Heading "My Courses — Semester 1, 2026"
+- Cards for each registered course showing code, name, credits, schedule, room, lecturer
+- Credit summary in the subtitle
+
+**13. Verify the Grades page**
+
+Navigate to http://localhost/grades. You should see:
+
+- Heading "My Grades"
+- GPA summary cards at the top: Cumulative GPA (should be 3.45 for Apisai based on seed data), per-semester GPA
+- Transcript table grouped by semester showing course code, name, credits, grade letter, and GPA points
+- Colour-coded grades (A/A-/A+ in green, B grades in blue, C grades in amber, F in red)
+
+**14. Verify the Invoices page**
+
+Navigate to http://localhost/invoices. You should see:
+
+- Heading "My Invoices"
+- Invoice card for INV-2026-S1-00001 (Apisai's partially paid invoice: FJ$3,780 total, FJ$1,890 paid)
+- Itemised fee breakdown in the card
+- Status badge: "Partially Paid"
+- "Download PDF" link
+- "Pay Now" button (since balance > 0)
+- Outstanding balance summary in top-right
+
+**15. Test invoice PDF download**
+
+Click "Download PDF" on any invoice. A PDF file should download. Open it and verify:
+
+- FNU header and "Tax Invoice" subtitle
+- Invoice ID, semester, due date
+- Itemised fee table with amounts
+- Total, Paid, and Balance Due rows
+
+If WeasyPrint is unavailable, the endpoint returns 500 — that is acceptable for local dev without system libraries; note WeasyPrint requires `libpango`, `libcairo`, and `libgdk-pixbuf` in the Docker image.
+
+**16. Test unauthenticated access to student endpoints**
+
+```bash
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/timetable
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/grades
+curl -s -w "\nHTTP %{http_code}\n" http://localhost/api/invoices
+```
+
+All three should return HTTP 401 or 403.
+
+**17. Test IDOR prevention — student 2 cannot see student 1 invoices**
+
+```bash
+TOKEN2=$(curl -s http://localhost/api/auth/login \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"email":"student2@fnu.ac.fj","password":"student123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Try to retrieve student 1's invoice using student 2's token
+curl -s -w "\nHTTP %{http_code}\n" \
+  "http://localhost/api/invoices/INV-2026-S1-00001" \
+  -H "Authorization: Bearer $TOKEN2"
+```
+
+Expected: HTTP 404 (invoice not found for student 2's banner_id — not 200 or 403 revealing ownership).
+
+**18. Test registration rate limiting**
+
+```bash
+for i in $(seq 1 5); do
+  curl -s -o /dev/null -w "Attempt $i: HTTP %{http_code}\n" \
+    http://localhost/api/registration/confirm \
+    -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"offering_ids":["fake-id"],"semester":"S1","year":2026}'
+done
+```
+
+Expected: attempts 1–3 return 400 (invalid offering), attempt 4 returns 429 (rate limited).
+
+**19. Verify second student (Litia — BNUR)**
+
+```bash
+TOKEN2=$(curl -s http://localhost/api/auth/login \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"email":"student2@fnu.ac.fj","password":"student123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+curl -s http://localhost/api/programme \
+  -H "Authorization: Bearer $TOKEN2" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(d['code'], d['name'])"
+
+curl -s http://localhost/api/grades \
+  -H "Authorization: Bearer $TOKEN2" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(f'GPA: {d[\"cumulative_gpa\"]}, courses: {len(d[\"grades\"])}')"
+```
+
+Expected: programme BNUR (Bachelor of Nursing), GPA based on NUR101 (A) and BIO101 (B+) seed data.
+
+**20. Run automated tests**
+
+```bash
+# Backend (100 tests)
+cd backend && uv run pytest tests/ -v
+
+# Frontend
+cd frontend && npx vitest run
+```
+
+All tests should pass.
+
+**21. Stop the stack**
+
+```bash
+./scripts/stop.sh
+```
+
+---
+
 ## Security Verification Checklist (All Parts)
 
 Run this checklist before any production deployment or after any security-related change.

@@ -6,7 +6,7 @@ All student-facing endpoints are scoped to the authenticated user's banner_id.
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from src.backend.auth import require_role
@@ -655,4 +655,198 @@ async def get_invoice_detail(
         due_date=inv.due_date.isoformat() if inv.due_date else None,
         status=inv.status,
         balance_cents=inv.total_cents - inv.paid_cents,
+    )
+
+
+# ---------- Courses listing ----------
+
+class CourseListItem(BaseModel):
+    code: str
+    name: str
+    credits: int
+    programme_codes: list[str]
+    year_level: int
+    semester: str
+    offerings: list[OfferingOut]
+    prereqs_met: bool
+    prereq_issues: list[str]
+
+
+@router.get("/api/courses")
+async def get_courses(
+    semester: str = "S1",
+    year: int = 2026,
+    user: User = Depends(require_role("student")),
+) -> list[CourseListItem]:
+    """Return selectable courses for the student's programme with prereq/availability status."""
+    banner_id = _require_banner_id(user)
+    banner = get_banner_client()
+    student = await banner.get_student(banner_id)
+    if not student or not student.programme_code:
+        raise HTTPException(status_code=404, detail="Student programme not found")
+
+    courses = await banner.get_courses(student.programme_code)
+    completed = await banner.get_completed_courses(banner_id)
+    completed_codes = {c.course_code for c in completed}
+    offerings = await banner.get_offerings(semester=semester, year=year)
+    offerings_by_course: dict[str, list[Offering]] = {}
+    for o in offerings:
+        offerings_by_course.setdefault(o.course_code, []).append(o)
+
+    result: list[CourseListItem] = []
+    for course in courses:
+        if course.code in completed_codes:
+            continue
+        prereqs_met, issues = check_prerequisites(
+            course.code,
+            [p.model_dump() for p in course.prerequisites],
+            completed,
+        )
+        course_offerings = offerings_by_course.get(course.code, [])
+        offering_outs = [
+            OfferingOut(
+                id=o.id,
+                course_code=o.course_code,
+                course_name=course.name,
+                credits=course.credits,
+                day_of_week=o.day_of_week,
+                start_time=o.start_time,
+                end_time=o.end_time,
+                room=o.room,
+                campus=o.campus.value,
+                lecturer_name=o.lecturer_name,
+                capacity=o.capacity,
+                enrolled=o.enrolled,
+                available=o.enrolled < o.capacity,
+                prereqs_met=prereqs_met,
+                prereq_issues=issues,
+            )
+            for o in course_offerings
+            if student.campus is None or o.campus.value == student.campus.value
+        ]
+        result.append(CourseListItem(
+            code=course.code,
+            name=course.name,
+            credits=course.credits,
+            programme_codes=course.programme_codes,
+            year_level=course.year_level,
+            semester=course.semester.value,
+            offerings=offering_outs,
+            prereqs_met=prereqs_met,
+            prereq_issues=issues,
+        ))
+
+    return result
+
+
+# ---------- Invoice PDF ----------
+
+def _invoice_html(inv: InvoiceOut) -> str:
+    rows = "".join(
+        f"<tr><td>{item.code}</td><td>{item.description}</td>"
+        f"<td style='text-align:right'>FJ${item.amount_cents / 100:.2f}</td></tr>"
+        for item in inv.items
+    )
+    status_label = inv.status.replace("_", " ").title()
+    due = inv.due_date or "—"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  body {{ font-family: Arial, sans-serif; font-size: 12px; color: #222; margin: 40px; }}
+  h1 {{ color: #003087; }}
+  .sub {{ color: #666; font-size: 11px; }}
+  table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+  th {{ background: #003087; color: #fff; padding: 8px; text-align: left; }}
+  td {{ padding: 7px 8px; border-bottom: 1px solid #ddd; }}
+  .totals td {{ font-weight: bold; border-top: 2px solid #003087; }}
+  .status {{ display: inline-block; padding: 3px 8px; border-radius: 4px;
+             background: #e8f5e9; color: #2e7d32; }}
+</style>
+</head>
+<body>
+<h1>Fiji National University</h1>
+<p class="sub">Student Services Portal — Tax Invoice</p>
+<hr>
+<p><strong>Invoice ID:</strong> {inv.invoice_id}</p>
+<p><strong>Semester:</strong> {inv.semester} {inv.year}</p>
+<p><strong>Due Date:</strong> {due}</p>
+<p><strong>Status:</strong> <span class="status">{status_label}</span></p>
+<table>
+  <thead><tr><th>Code</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+  <tbody>{rows}</tbody>
+  <tfoot>
+    <tr class="totals">
+      <td colspan="2">Total</td>
+      <td style="text-align:right">FJ${inv.total_cents / 100:.2f}</td>
+    </tr>
+    <tr class="totals">
+      <td colspan="2">Paid</td>
+      <td style="text-align:right">FJ${inv.paid_cents / 100:.2f}</td>
+    </tr>
+    <tr class="totals">
+      <td colspan="2">Balance Due</td>
+      <td style="text-align:right">FJ${inv.balance_cents / 100:.2f}</td>
+    </tr>
+  </tfoot>
+</table>
+<p style="margin-top:30px;font-size:10px;color:#888;">
+  This document was generated by the FNU Student Services Portal.
+  Please retain for your records.
+</p>
+</body>
+</html>"""
+
+
+@router.get("/api/invoices/{invoice_id}.pdf")
+async def get_invoice_pdf(
+    invoice_id: str,
+    user: User = Depends(require_role("student")),
+) -> Response:
+    """Generate and return an invoice as a PDF (WeasyPrint)."""
+    banner_id = _require_banner_id(user)
+    banner = get_banner_client()
+    invoices = await banner.get_invoices(banner_id)
+    inv = next((i for i in invoices if i.invoice_id == invoice_id), None)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    inv_out = InvoiceOut(
+        invoice_id=inv.invoice_id,
+        semester=inv.semester.value,
+        year=inv.year,
+        items=[
+            InvoiceItem(
+                code=item.code,
+                description=item.description,
+                amount_cents=item.amount_cents,
+                fee_type=item.fee_type,
+            )
+            for item in inv.items
+        ],
+        total_cents=inv.total_cents,
+        paid_cents=inv.paid_cents,
+        due_date=inv.due_date.isoformat() if inv.due_date else None,
+        status=inv.status,
+        balance_cents=inv.total_cents - inv.paid_cents,
+    )
+
+    try:
+        import weasyprint  # noqa: PLC0415
+        html = _invoice_html(inv_out)
+        pdf_bytes = weasyprint.HTML(string=html).write_pdf()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="PDF generation failed",
+        ) from exc
+
+    safe_id = invoice_id.replace("/", "_").replace("..", "")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_id}.pdf"',
+        },
     )
