@@ -30,13 +30,18 @@ def test_factory_rejects_mock_in_production(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("BANNER_MODE", "mock")
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("JWT_SECRET", "a" * 64)
+    monkeypatch.setenv("PAYMENTS_MODE", "live")
+    monkeypatch.setenv("MPAISA_MERCHANT_ID", "test-merchant")
+    monkeypatch.setenv("MPAISA_SECRET", "test-secret")
+    monkeypatch.setenv("MYCASH_MERCHANT_ID", "test-merchant")
+    monkeypatch.setenv("MYCASH_SECRET", "test-secret")
 
     from src.backend.config import Settings
 
     monkeypatch.setattr("src.backend.banner.factory.settings", Settings())
     reset_banner_client()
 
-    with pytest.raises(ValueError, match="not allowed in production"):
+    with pytest.raises(ValueError, match="BANNER_MODE=mock is not allowed in production"):
         get_banner_client()
 
 

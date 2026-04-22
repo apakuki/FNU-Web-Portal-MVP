@@ -361,28 +361,29 @@ Deliver TOR 2.2: M-PAiSA + MyCash integration, bank transfer fallback, payment p
 ### Substeps
 
 - [ ] Procure M-PAiSA and MyCash sandbox merchant accounts (blocking — FNU-initiated, developer-integrated)
-- [ ] Build `payments` service in the backend with provider adapters: `MpaisaAdapter`, `MycashAdapter`, `BankTransferAdapter`
-- [ ] Build `POST /api/payments/initiate` — returns gateway redirect URL + portal-side attempt record
-- [ ] Build `POST /api/payments/callback/mpaisa` and `/api/payments/callback/mycash` — signature-verified, idempotent (the reverse proxy must route these without next-auth in the way)
-- [ ] Build `POST /api/payments/bank-confirm` (finance role) for manual bank-transfer confirmation
-- [ ] Build payment plan engine: schedule generator, reminder scheduler (APScheduler job), overdue escalation, de-registration warning
-- [ ] Build reconciliation endpoints and finance UI under `app/(admin)/finance/`: payments received, daily report, CSV/Excel export, method breakdown
-- [ ] Wire notifications: 3-day reminder, overdue, de-registration warning
-- [ ] Build student-facing "Make a Payment" page at `app/(portal)/pay/` — Client Component with method picker, amount or full balance, retry on failure
-- [ ] Build finance bank-transfer confirmation UI
+- [x] Build `payments` service in the backend with provider adapters: `MpaisaAdapter`, `MycashAdapter`, `BankTransferAdapter` (plus `StubPaymentAdapter` for dev/CI)
+- [x] Build `POST /api/payments/initiate` — returns gateway redirect URL + portal-side attempt record
+- [x] Build `POST /api/payments/callback/mpaisa` and `/api/payments/callback/mycash` — signature-verified, idempotent (the reverse proxy must route these without next-auth in the way)
+- [x] Build `POST /api/payments/bank-confirm` (finance role) for manual bank-transfer confirmation
+- [x] Build payment plan engine: schedule generator, overdue marking, reminder triggers (scheduler job deferred to Part 11 notifications)
+- [x] Build reconciliation endpoints and finance UI under `app/(admin)/finance/`: payments received, daily report, CSV export, method breakdown
+- [ ] Wire notifications: 3-day reminder, overdue, de-registration warning (requires APScheduler — deferred to Part 11)
+- [x] Build student-facing "Make a Payment" page at `app/(portal)/pay/` — Client Component with method picker, amount or full balance, retry on failure
+- [x] Build finance bank-transfer confirmation UI
 
 ### Security Hardening
 
-- [ ] Payment callback endpoints: verify gateway-specific HMAC signature on every callback; reject unsigned/invalid
-- [ ] Callback endpoints: exclude from CSRF/auth middleware (they are gateway-initiated), but verify by signature
-- [ ] Idempotency: same callback replayed must produce exactly one state change (use gateway_reference as dedup key)
-- [ ] Payment initiation: validate amount matches invoice balance; prevent negative or zero amounts
-- [ ] Store gateway credentials (MPAISA_SECRET, MYCASH_SECRET) in `.env` only, never log them
-- [ ] Rate limit payment initiation (10/minute per user) to prevent abuse
-- [ ] Reconciliation endpoints: require_role("finance", "admin") — never student-accessible
-- [ ] Bank-confirm endpoint: require_role("finance") with mandatory audit log and reason
-- [ ] All payment amounts validated server-side — never trust client-submitted amounts
-- [ ] TLS required for all gateway API calls; pin certificates if gateway supports it
+- [x] Payment callback endpoints: verify gateway-specific HMAC signature on every callback; reject unsigned/invalid
+- [x] Callback endpoints: exclude from CSRF/auth middleware (they are gateway-initiated), but verify by signature
+- [x] Idempotency: same callback replayed must produce exactly one state change (use gateway_reference as dedup key)
+- [x] Payment initiation: validate amount ≤ invoice balance; prevent negative or zero amounts (Pydantic `gt=0`)
+- [x] Store gateway credentials (MPAISA_SECRET, MYCASH_SECRET) in `.env` only, never log them
+- [x] Rate limit payment initiation (10/minute per user) via slowapi
+- [x] Reconciliation endpoints: require_role("finance", "admin") — never student-accessible
+- [x] Bank-confirm endpoint: require_role("finance", "admin") with mandatory audit log
+- [x] All payment amounts validated server-side — never trust client-submitted amounts
+- [x] Production config validator rejects `PAYMENTS_MODE=stub` and requires live merchant credentials
+- [ ] TLS cert pinning on gateway API calls (deferred — depends on live merchant contracts)
 
 ### Tests
 

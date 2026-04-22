@@ -8,6 +8,7 @@ import { useState } from "react";
 const ADMIN_LINKS = [
   { href: "/admin", label: "Admin Dashboard" },
   { href: "/admin/applications", label: "Applications" },
+  { href: "/admin/finance", label: "Finance" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/kpi", label: "KPI Dashboard" },
   { href: "/admin/enquiries", label: "Enquiries" },

@@ -16,6 +16,16 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
     environment: str = "development"
 
+    payments_mode: str = "stub"
+    mpaisa_merchant_id: str = ""
+    mpaisa_secret: str = ""
+    mpaisa_api_url: str = "https://sandbox.mpaisa.vodafone.com.fj/api"
+    mpaisa_callback_url: str = "http://localhost/api/payments/callback/mpaisa"
+    mycash_merchant_id: str = ""
+    mycash_secret: str = ""
+    mycash_api_url: str = "https://sandbox.digicel.com.fj/mycash/api"
+    mycash_callback_url: str = "http://localhost/api/payments/callback/mycash"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @model_validator(mode="after")
@@ -25,6 +35,13 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET must be set to a secure random value in production")
             if len(self.jwt_secret) < 32:
                 raise ValueError("JWT_SECRET must be at least 32 characters in production")
+            if self.payments_mode == "stub":
+                raise ValueError("PAYMENTS_MODE=stub is not allowed in production")
+            if self.payments_mode == "live":
+                if not self.mpaisa_merchant_id or not self.mpaisa_secret:
+                    raise ValueError("MPAISA_MERCHANT_ID and MPAISA_SECRET required in live mode")
+                if not self.mycash_merchant_id or not self.mycash_secret:
+                    raise ValueError("MYCASH_MERCHANT_ID and MYCASH_SECRET required in live mode")
         return self
 
 

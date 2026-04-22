@@ -35,9 +35,22 @@ FNU Web Portal MVP/
 │   │   │   ├── auth.py           # POST /api/auth/login|logout|me|reset-password
 │   │   │   ├── banner.py         # GET /api/banner/health
 │   │   │   ├── applications.py   # POST/GET /api/applications; admin queue; offers
-│   │   │   └── registration.py   # GET /api/programme|timetable|grades|my-courses|invoices
-│   │   │                         # POST /api/registration/confirm
-│   │   │                         # GET /api/timetable.ics
+│   │   │   ├── registration.py   # GET /api/programme|timetable|grades|my-courses|invoices
+│   │   │   │                     # POST /api/registration/confirm
+│   │   │   │                     # GET /api/timetable.ics
+│   │   │   └── payments.py       # POST /api/payments/initiate|callback/*|bank-confirm
+│   │   │                         # GET /api/payments/reconciliation (json|csv)
+│   │   │                         # GET /api/account; POST /api/account/plan
+│   │   ├── payments/
+│   │   │   ├── base.py           # PaymentAdapter ABC; InitiateRequest/Response; CallbackResult
+│   │   │   ├── signature.py      # HMAC-SHA256 sign_payload / verify_signature (constant-time)
+│   │   │   ├── stub_adapter.py   # StubPaymentAdapter + STUB_SECRET (dev/CI only)
+│   │   │   ├── mpaisa_adapter.py # Live M-PAiSA (Vodafone) httpx client
+│   │   │   ├── mycash_adapter.py # Live MyCash (Digicel) httpx client
+│   │   │   ├── bank_transfer_adapter.py  # Manual-confirm adapter
+│   │   │   ├── plan_engine.py    # generate_plan_schedule / apply_payment / mark_overdue
+│   │   │   ├── factory.py        # get_payment_adapter / get_callback_secret
+│   │   │   └── __init__.py       # Module exports
 │   │   ├── banner/
 │   │   │   ├── types.py          # Pydantic models for all Banner entities
 │   │   │   ├── base.py           # Abstract BannerClient (14 methods)
@@ -65,7 +78,9 @@ FNU Web Portal MVP/
 │       ├── test_banner_mock.py
 │       ├── test_banner_cache.py
 │       ├── test_banner_factory.py
-│       └── test_applications.py
+│       ├── test_applications.py
+│       ├── test_registration.py
+│       └── test_payments.py
 └── frontend/
     ├── package.json              # Next.js 15, next-auth, zod, vitest, @testing-library
     ├── tsconfig.json             # paths: { "@/*": ["./*"] }
@@ -101,13 +116,15 @@ FNU Web Portal MVP/
         │   ├── timetable/page.tsx        # Weekly timetable + .ics export (Server Component)
         │   ├── courses/page.tsx          # Registered courses list (Server Component)
         │   ├── grades/page.tsx           # Grades + GPA summary (Server Component)
-        │   └── invoices/page.tsx         # Invoice list + PDF download (Server Component)
+        │   ├── invoices/page.tsx         # Invoice list + PDF download (Server Component)
+        │   └── pay/page.tsx              # Make-a-Payment page (Client Component)
         ├── (admin)/              # Staff/admin shell
         │   ├── layout.tsx
         │   ├── admin/page.tsx                        # Admin dashboard
-        │   └── admin/applications/
-        │       ├── page.tsx                          # Application queue
-        │       └── [id]/page.tsx                     # Application detail + actions
+        │   ├── admin/applications/
+        │   │   ├── page.tsx                          # Application queue
+        │   │   └── [id]/page.tsx                     # Application detail + actions
+        │   └── admin/finance/page.tsx                # Reconciliation + bank-confirm UI
         └── (lecturer)/           # Lecturer shell
             ├── layout.tsx
             └── lecturer/page.tsx
@@ -225,8 +242,15 @@ FNU Web Portal MVP/
 | `/api/my-courses` | `api/registration.py` | `require_role("student")` |
 | `/api/invoices` | `api/registration.py` | `require_role("student")` |
 | `/api/invoices/{id}` | `api/registration.py` | `require_role("student")` |
+| `/api/payments/initiate` | `api/payments.py` | `require_role("student")`, rate 10/min |
+| `/api/payments/callback/mpaisa` | `api/payments.py` | None (HMAC-verified, gateway-initiated) |
+| `/api/payments/callback/mycash` | `api/payments.py` | None (HMAC-verified, gateway-initiated) |
+| `/api/payments/bank-confirm` | `api/payments.py` | `require_role("finance","admin")` |
+| `/api/payments/reconciliation` | `api/payments.py` | `require_role("finance","admin")`; `format=csv` streams CSV |
+| `/api/account` | `api/payments.py` | `require_role("student")` — balance, history, plan |
+| `/api/account/plan` | `api/payments.py` | `require_role("student")` — creates instalment plan |
 
-**Note:** `registration_router` is included without a prefix (routes define their own `/api/...` paths).
+**Note:** `registration_router` and `payments_router` are included without a prefix (routes define their own `/api/...` paths).
 
 ### Frontend — Next.js App Router groups
 
@@ -259,12 +283,15 @@ FNU Web Portal MVP/
 | `BANNER_CACHE_TTL_SECONDS` | `900` | No | TTL for programmes/courses/fees cache |
 | `OPENROUTER_API_KEY` | `` | When chatbot live | AI chatbot LLM access |
 | `CORS_ORIGINS` | `["http://localhost:3000","http://localhost"]` | Yes | Allowed CORS origins |
-| `MPAISA_MERCHANT_ID` | `` | Part 8 | M-PAiSA merchant ID |
-| `MPAISA_SECRET` | `` | Part 8 | M-PAiSA HMAC secret |
-| `MPAISA_CALLBACK_URL` | `http://localhost/api/payments/callback/mpaisa` | Part 8 | Public callback URL |
-| `MYCASH_MERCHANT_ID` | `` | Part 8 | MyCash merchant ID |
-| `MYCASH_SECRET` | `` | Part 8 | MyCash HMAC secret |
-| `MYCASH_CALLBACK_URL` | `http://localhost/api/payments/callback/mycash` | Part 8 | Public callback URL |
+| `PAYMENTS_MODE` | `stub` | Yes (`live`) | `stub` for dev/CI; `live` required in production. Production validator rejects `stub`. |
+| `MPAISA_MERCHANT_ID` | `` | Yes when live | M-PAiSA merchant ID |
+| `MPAISA_SECRET` | `` | Yes when live | M-PAiSA HMAC secret |
+| `MPAISA_API_URL` | `https://sandbox.mpaisa.vodafone.com.fj/api` | No | M-PAiSA base URL |
+| `MPAISA_CALLBACK_URL` | `http://localhost/api/payments/callback/mpaisa` | Yes | Public callback URL |
+| `MYCASH_MERCHANT_ID` | `` | Yes when live | MyCash merchant ID |
+| `MYCASH_SECRET` | `` | Yes when live | MyCash HMAC secret |
+| `MYCASH_API_URL` | `https://sandbox.digicel.com.fj/mycash/api` | No | MyCash base URL |
+| `MYCASH_CALLBACK_URL` | `http://localhost/api/payments/callback/mycash` | Yes | Public callback URL |
 | `SMTP_HOST` | `sandbox.smtp.mailtrap.io` | Part 11 | SMTP server |
 | `SMTP_PORT` | `587` | Part 11 | SMTP port |
 | `SMTP_USER` | `` | Part 11 | SMTP credentials |
@@ -356,4 +383,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 7 complete (Course Registration, Timetable, Invoicing). Part 8 (Payment Gateway) is next.*
+*Last updated: Part 8 complete (Payment Gateway: M-PAiSA/MyCash/Bank Transfer adapters, stub for dev, plan engine, reconciliation UI, finance confirmation). Part 9 (AI Chatbot) is next.*

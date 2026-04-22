@@ -1067,3 +1067,66 @@ Run this checklist before any production deployment or after any security-relate
 
 - [ ] Backend never returns stack traces to clients (trigger a 500 and verify response is `{"detail": "Internal server error"}`)
 - [ ] Frontend error boundaries catch rendering errors gracefully
+
+---
+
+## Part 8: Payment Gateway Integration
+
+### Setup
+
+- [ ] Backend running with `PAYMENTS_MODE=stub` and `BANNER_MODE=mock`
+- [ ] Logged in as student with an unpaid invoice (see Part 7 fixtures)
+- [ ] A second login as a user with `finance` or `admin` role available in another browser
+
+### Student Pay page (`/pay`)
+
+- [ ] Navigate to **Make a Payment** from the portal sidebar
+- [ ] Outstanding balance card shows the sum of all unpaid invoices
+- [ ] Invoice dropdown lists only invoices with `balance_cents > 0`
+- [ ] Method radios show M-PAiSA, MyCash, Bank Transfer; M-PAiSA selected by default
+- [ ] "Full balance" option shows the outstanding amount inline
+- [ ] Selecting "Partial" reveals an FJD amount input; entering `0` or blank keeps the submit button disabled by validation
+- [ ] Submitting a partial amount greater than the invoice balance shows the error "Amount exceeds outstanding balance"
+- [ ] Rate limit: submitting 11 times within 1 minute produces a 429 Too Many Requests on the 11th
+- [ ] Submitting M-PAiSA in stub mode redirects the browser to `/api/payments/callback/mpaisa?ref=…&pid=…&stub=1`
+- [ ] Submitting Bank Transfer renders deposit instructions (bank name, account name, account number, reference starting with `FNU-<banner_id>-`)
+- [ ] Recent Payments table lists the latest attempt with status `initiated`
+
+### Stub callback (idempotency)
+
+- [ ] POST a signed callback to `/api/payments/callback/mpaisa` with `status=confirmed`; response returns "Callback processed"
+- [ ] Replay the identical callback; response returns "Already processed" (idempotent)
+- [ ] Tamper with `amount_cents` and replay; response is 400 Invalid signature
+- [ ] Remove the `payment_id` field and replay; response is 400 with "Missing callback fields"
+- [ ] Student /pay page now shows the payment with status `confirmed` and balance updates on the account card
+
+### Bank transfer confirmation
+
+- [ ] As student, initiate a bank transfer payment; note the `payment_id` and `deposit_reference`
+- [ ] Switch to the finance login and open **Admin → Finance**
+- [ ] In "Confirm Bank Transfer", enter the payment ID, bank reference, and amount; submit
+- [ ] Response shows "Confirmed (payment <uuid>)" and the entries table updates
+- [ ] A student role trying to POST `/api/payments/bank-confirm` directly is rejected 403
+
+### Finance reconciliation (`/admin/finance`)
+
+- [ ] Default report shows last 30 days; date filters apply on "Apply"
+- [ ] Method filter narrows entries correctly
+- [ ] Top cards show Total Confirmed and a per-method breakdown (M-PAiSA, MyCash, Bank Transfer)
+- [ ] Only `confirmed` payments contribute to the totals; `initiated`/`pending`/`failed` do not
+- [ ] "Export CSV" downloads a file with columns `payment_id,student_banner_id,invoice_id,method,amount_cents,status,gateway_reference,created_at`
+- [ ] Opening the CSV in a spreadsheet shows the same rows as the on-screen table
+
+### Payment plan
+
+- [ ] POST `/api/account/plan` with `{"invoice_id": "<inv>", "num_instalments": 3, "first_due_date": "2026-05-01"}`
+- [ ] Response returns `schedule.instalments` with 3 entries summing to the invoice balance
+- [ ] Student /pay page shows the schedule table under "Payment Plan"
+- [ ] Instalments past today appear as `overdue`; future instalments as `upcoming`
+
+### Security
+
+- [ ] Callback with missing `X-MPaisa-Signature` header and no `signature` field in body is rejected 400
+- [ ] Callback with incorrect signature returns 400 Invalid signature (not a generic 500)
+- [ ] Production config refuses `PAYMENTS_MODE=stub` at startup (pydantic ValidationError)
+- [ ] Production config with `PAYMENTS_MODE=live` but missing `MPAISA_SECRET` raises a clear error
