@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     banner_timeout_seconds: float = 10.0
     banner_cache_ttl_seconds: int = 900
     openrouter_api_key: str = ""
+    openrouter_model: str = "anthropic/claude-sonnet-4"
+    openrouter_api_url: str = "https://openrouter.ai/api/v1/chat/completions"
+    chatbot_mode: str = "stub"  # stub | live
+    chatbot_max_message_chars: int = 2000
+    chatbot_max_history_turns: int = 50
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost"]
     environment: str = "development"
 
@@ -42,6 +47,8 @@ class Settings(BaseSettings):
                     raise ValueError("MPAISA_MERCHANT_ID and MPAISA_SECRET required in live mode")
                 if not self.mycash_merchant_id or not self.mycash_secret:
                     raise ValueError("MYCASH_MERCHANT_ID and MYCASH_SECRET required in live mode")
+            if self.chatbot_mode == "live" and not self.openrouter_api_key:
+                raise ValueError("OPENROUTER_API_KEY required when CHATBOT_MODE=live")
         return self
 
 

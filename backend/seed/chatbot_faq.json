@@ -1,0 +1,62 @@
+[
+  {
+    "kind": "faq",
+    "title": "Entry requirements for Bachelor of Nursing",
+    "tags": ["admissions", "nursing", "entry-requirements", "bnur"],
+    "content": "The Bachelor of Nursing (BNUR) entry requirements are: (1) Year 13 / Form 7 Certificate with passes in English, Biology and Chemistry at minimum grade C; or (2) FNU Foundation Certificate in Health Sciences with a B average; or (3) equivalent qualification approved by the College of Medicine, Nursing and Health Sciences. Mature-age applicants (21+) may apply via Recognition of Prior Learning."
+  },
+  {
+    "kind": "faq",
+    "title": "Entry requirements for Bachelor of Commerce",
+    "tags": ["admissions", "commerce", "entry-requirements", "bcom"],
+    "content": "The Bachelor of Commerce (BCOM) entry requirements are: Year 13 / Form 7 Certificate with passes in English, Mathematics and one Commerce subject (Accounting, Economics, or Business Studies) at minimum grade C; or FNU Foundation Certificate in Business Studies with a C+ average; or an approved equivalent."
+  },
+  {
+    "kind": "faq",
+    "title": "Application deadlines for Semester 2 2026",
+    "tags": ["admissions", "deadlines", "semester-2"],
+    "content": "Applications for Semester 2, 2026 close on Friday 30 May 2026. Late applications are accepted at the discretion of the College Registrar until Monday 8 June 2026, after which no further applications will be processed for Semester 2 enrolment. Semester 2 classes commence Monday 15 June 2026."
+  },
+  {
+    "kind": "faq",
+    "title": "How to pay tuition fees",
+    "tags": ["fees", "payments", "mpaisa", "mycash", "bank-transfer"],
+    "content": "Tuition fees can be paid through three methods in the portal: (1) M-PAiSA mobile money via Vodafone Fiji, (2) MyCash mobile money via Digicel Fiji, or (3) bank transfer to the FNU Westpac account (reference: your Banner ID). Open the Make a Payment page from the portal sidebar, choose your invoice, select a method, and follow the prompts. Payment plans of 2 to 6 instalments are available."
+  },
+  {
+    "kind": "faq",
+    "title": "Tuition fee schedule for 2026",
+    "tags": ["fees", "schedule", "tuition"],
+    "content": "Indicative tuition fees for 2026: BCOM full-time semester FJ$3,780; BNUR full-time semester FJ$4,100; BSCI full-time semester FJ$3,640; DIT full-time semester FJ$2,950; CEDU full-time semester FJ$2,800. Partial-load students are charged per course. International student rates are higher; refer to the published fee schedule for exact figures."
+  },
+  {
+    "kind": "faq",
+    "title": "Course registration window",
+    "tags": ["registration", "courses", "deadlines"],
+    "content": "Course registration for Semester 2 2026 opens Monday 1 June 2026 at 0900 and closes Friday 19 June 2026 at 1700 (end of Week 1). Add/drop without academic penalty is permitted until end of Week 2 (26 June 2026). Withdrawal with academic penalty applies after Week 4."
+  },
+  {
+    "kind": "faq",
+    "title": "Graduation requirements",
+    "tags": ["graduation", "completion", "credits"],
+    "content": "To graduate from an FNU Bachelor degree you must (1) complete all required core and elective courses for your programme, (2) achieve a minimum cumulative GPA of 2.0, (3) settle all outstanding fees, (4) complete any work-integrated learning components specified by your College, and (5) submit the graduation application form by the published deadline (typically 8 weeks before the graduation ceremony)."
+  },
+  {
+    "kind": "faq",
+    "title": "How to reset your portal password",
+    "tags": ["account", "password", "reset", "login"],
+    "content": "If you have forgotten your portal password, click \"Forgot password?\" on the sign-in page and enter your registered email. You will receive a reset link valid for 24 hours. If you do not receive the email within 10 minutes check your spam folder. For ongoing access issues contact the IT Service Desk on +679 339 4000 or itsupport@fnu.ac.fj."
+  },
+  {
+    "kind": "faq",
+    "title": "Outstanding fees and de-registration",
+    "tags": ["fees", "deregistration", "warning"],
+    "content": "Students with outstanding fees beyond the deferred-payment grace period (Week 4 of the semester) will receive a de-registration warning. If full payment or an approved instalment plan is not in place by Week 6 the student is automatically de-registered from all courses for that semester and forfeits the semester. Re-registration requires settling the balance plus a re-instatement fee."
+  },
+  {
+    "kind": "faq",
+    "title": "Campus locations",
+    "tags": ["campus", "locations", "contact"],
+    "content": "FNU operates from multiple campuses across Fiji: Nasinu (main administration and CBHTS), Suva (College of Medicine, Nursing and Health Sciences and CHESS), Lautoka (College of Engineering and Science), Labasa, Ba and Nadi (regional learning centres). Campus selection is made at application time but transfer between campuses is possible subject to programme availability."
+  }
+]

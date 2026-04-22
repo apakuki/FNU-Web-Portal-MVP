@@ -38,9 +38,12 @@ FNU Web Portal MVP/
 │   │   │   ├── registration.py   # GET /api/programme|timetable|grades|my-courses|invoices
 │   │   │   │                     # POST /api/registration/confirm
 │   │   │   │                     # GET /api/timetable.ics
-│   │   │   └── payments.py       # POST /api/payments/initiate|callback/*|bank-confirm
-│   │   │                         # GET /api/payments/reconciliation (json|csv)
-│   │   │                         # GET /api/account; POST /api/account/plan
+│   │   │   ├── payments.py       # POST /api/payments/initiate|callback/*|bank-confirm
+│   │   │   │                     # GET /api/payments/reconciliation (json|csv)
+│   │   │   │                     # GET /api/account; POST /api/account/plan
+│   │   │   └── chatbot.py        # POST /api/chat (public; auth-aware)
+│   │   │                         # CRUD /api/admin/chatbot/knowledge
+│   │   │                         # GET /api/admin/chatbot/conversations|analytics
 │   │   ├── payments/
 │   │   │   ├── base.py           # PaymentAdapter ABC; InitiateRequest/Response; CallbackResult
 │   │   │   ├── signature.py      # HMAC-SHA256 sign_payload / verify_signature (constant-time)
@@ -70,7 +73,10 @@ FNU Web Portal MVP/
 │   │   │       └── versions/     # Migration files (excluded from ruff lint)
 │   │   └── services/
 │   │       ├── audit_service.py  # write_audit_log() — fire-and-forget DB write
-│   │       └── notification_service.py  # send_notification() — stub, logs to DB
+│   │       ├── notification_service.py  # send_notification() — stub, logs to DB
+│   │       └── chatbot_service.py  # FAQ retrieval, prompt composition, OpenRouter, escalation, PII masking
+│   ├── seed/
+│   │   └── chatbot_faq.json      # 10 seed FAQ entries (admissions, fees, deadlines, etc.)
 │   └── tests/
 │       ├── test_health.py
 │       ├── test_auth.py

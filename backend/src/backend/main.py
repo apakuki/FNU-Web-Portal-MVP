@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from src.backend.api.applications import router as applications_router
 from src.backend.api.auth import router as auth_router
 from src.backend.api.banner import router as banner_router
+from src.backend.api.chatbot import router as chatbot_router
 from src.backend.api.health import router as health_router
 from src.backend.api.payments import router as payments_router
 from src.backend.api.registration import router as registration_router
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(applications_router, prefix="/api")
     app.include_router(registration_router)
     app.include_router(payments_router)
+    app.include_router(chatbot_router)
 
     return app
 

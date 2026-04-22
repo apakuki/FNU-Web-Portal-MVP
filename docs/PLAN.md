@@ -414,25 +414,25 @@ Deliver TOR 2.3.1 and 2.3.2 backend: OpenRouter integration, FAQ-augmented LLM r
 
 ### Substeps
 
-- [ ] Set up OpenRouter client in backend; load `OPENROUTER_API_KEY` from `.env` via python-dotenv
-- [ ] Build `POST /api/chat` endpoint: accept message, retrieve matching `chatbot_knowledge` entries (keyword search for MVP; embedding search noted as future enhancement), compose system prompt, call LLM, return reply
-- [ ] Implement authenticated mode: when student is logged in, the LLM receives their account balance, registered courses (via Banner), so it can answer "what's my balance" style questions
-- [ ] Implement escalation: when confidence low or user asks for human, flag conversation `escalated`, create `enquiries` row, notify staff
-- [ ] Build `/api/admin/chatbot/knowledge` CRUD for FAQ entries and document uploads
-- [ ] Build `/api/admin/chatbot/conversations` — searchable, filterable log
-- [ ] Build `/api/admin/chatbot/analytics` — totals, resolution rate, top categories, escalation rate
-- [ ] Seed initial FAQ from `seed/chatbot_faq.json` covering entry requirements, deadlines, fees, graduation
+- [x] Set up OpenRouter client in backend; load `OPENROUTER_API_KEY` from `.env` via python-dotenv
+- [x] Build `POST /api/chat` endpoint: accept message, retrieve matching `chatbot_knowledge` entries (keyword search for MVP; embedding search noted as future enhancement), compose system prompt, call LLM, return reply
+- [x] Implement authenticated mode: when student is logged in, the LLM receives their account balance, registered courses (via Banner), so it can answer "what's my balance" style questions
+- [x] Implement escalation: when confidence low or user asks for human, flag conversation `escalated`, create `enquiries` row, notify staff
+- [x] Build `/api/admin/chatbot/knowledge` CRUD for FAQ entries and document uploads
+- [x] Build `/api/admin/chatbot/conversations` — searchable, filterable log
+- [x] Build `/api/admin/chatbot/analytics` — totals, resolution rate, top categories, escalation rate
+- [x] Seed initial FAQ from `seed/chatbot_faq.json` covering entry requirements, deadlines, fees, graduation
 
 ### Security Hardening
 
-- [ ] OPENROUTER_API_KEY stored in `.env`, never logged, never included in error responses
-- [ ] Sanitise all user messages before including in LLM prompt (prevent prompt injection)
-- [ ] Limit message length (2000 chars max) and conversation history depth (50 turns) to prevent token abuse
-- [ ] Rate limit chat endpoint: 30 req/min per user (authenticated), 10 req/min per IP (unauthenticated)
-- [ ] Authenticated mode: only inject the requesting student's data into the prompt (never other students')
-- [ ] Strip PII from chatbot conversation logs visible in admin UI (mask student IDs, email addresses)
-- [ ] Admin knowledge CRUD: require_role("admin") — prevent privilege escalation via FAQ manipulation
-- [ ] Validate FAQ content for script injection before storing (sanitise HTML)
+- [x] OPENROUTER_API_KEY stored in `.env`, never logged, never included in error responses
+- [x] Sanitise all user messages before including in LLM prompt (prevent prompt injection)
+- [x] Limit message length (2000 chars max) and conversation history depth (50 turns) to prevent token abuse
+- [x] Rate limit chat endpoint: 30 req/min per user (authenticated), 10 req/min per IP (unauthenticated)
+- [x] Authenticated mode: only inject the requesting student's data into the prompt (never other students')
+- [x] Strip PII from chatbot conversation logs visible in admin UI (mask student IDs, email addresses)
+- [x] Admin knowledge CRUD: require_role("admin") — prevent privilege escalation via FAQ manipulation
+- [x] Validate FAQ content for script injection before storing (sanitise HTML)
 
 ### Tests
 

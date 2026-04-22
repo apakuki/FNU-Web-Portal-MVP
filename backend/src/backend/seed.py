@@ -1,10 +1,14 @@
 import asyncio
+import json
+from pathlib import Path
 
 from sqlalchemy import select
 
 from src.backend.auth import hash_password
-from src.backend.db.models import User
+from src.backend.db.models import ChatbotKnowledge, User
 from src.backend.db.session import async_session_factory
+
+FAQ_SEED_PATH = Path(__file__).resolve().parents[2] / "seed" / "chatbot_faq.json"
 
 SEED_USERS = [
     {
@@ -66,26 +70,55 @@ SEED_USERS = [
 ]
 
 
+async def seed_users(session) -> None:
+    for user_data in SEED_USERS:
+        result = await session.execute(
+            select(User).where(User.email == user_data["email"])
+        )
+        if result.scalar_one_or_none():
+            print(f"  exists: {user_data['email']}")
+            continue
+
+        user = User(
+            email=user_data["email"],
+            full_name=user_data["full_name"],
+            role=user_data["role"],
+            password_hash=hash_password(user_data["password"]),
+            banner_id=user_data["banner_id"],
+        )
+        session.add(user)
+        print(f"  created: {user_data['email']} ({user_data['role']})")
+
+
+async def seed_chatbot_faq(session) -> None:
+    if not FAQ_SEED_PATH.exists():
+        print(f"  skipped FAQ seed (missing file: {FAQ_SEED_PATH})")
+        return
+
+    entries = json.loads(FAQ_SEED_PATH.read_text())
+    for entry in entries:
+        existing = await session.scalar(
+            select(ChatbotKnowledge).where(ChatbotKnowledge.title == entry["title"])
+        )
+        if existing:
+            print(f"  exists FAQ: {entry['title']}")
+            continue
+        session.add(
+            ChatbotKnowledge(
+                kind=entry.get("kind", "faq"),
+                title=entry["title"],
+                content=entry["content"],
+                tags=entry.get("tags", []),
+                is_active=True,
+            )
+        )
+        print(f"  created FAQ: {entry['title']}")
+
+
 async def seed() -> None:
     async with async_session_factory() as session:
-        for user_data in SEED_USERS:
-            result = await session.execute(
-                select(User).where(User.email == user_data["email"])
-            )
-            if result.scalar_one_or_none():
-                print(f"  exists: {user_data['email']}")
-                continue
-
-            user = User(
-                email=user_data["email"],
-                full_name=user_data["full_name"],
-                role=user_data["role"],
-                password_hash=hash_password(user_data["password"]),
-                banner_id=user_data["banner_id"],
-            )
-            session.add(user)
-            print(f"  created: {user_data['email']} ({user_data['role']})")
-
+        await seed_users(session)
+        await seed_chatbot_faq(session)
         await session.commit()
     print("Seed complete.")
 
