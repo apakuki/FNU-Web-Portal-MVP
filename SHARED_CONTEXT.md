@@ -101,7 +101,11 @@ FNU Web Portal MVP/
     │   ├── portal-nav.tsx        # Sidebar nav with active-link highlighting
     │   ├── portal-nav.test.tsx
     │   ├── outstanding-fees-banner.tsx  # Dismissable fee-balance alert
-    │   └── outstanding-fees-banner.test.tsx
+    │   ├── outstanding-fees-banner.test.tsx
+    │   ├── ChatbotWidget.tsx     # Floating/embed chat widget, wired to /api/chat
+    │   └── ChatbotWidget.test.tsx
+    ├── public/
+    │   └── embed/chatbot.js      # Static bootstrapper; injects iframe -> /embed/chatbot
     └── app/
         ├── layout.tsx            # Root layout (fonts, metadata, SessionProvider)
         ├── globals.css           # Tailwind @theme tokens; .input-field component
@@ -115,8 +119,10 @@ FNU Web Portal MVP/
         │   │   ├── application-form.tsx   # 5-step application wizard (Client)
         │   │   └── application-form.test.tsx
         │   └── offer/[token]/page.tsx     # Offer accept/decline page (Client)
+        ├── embed/
+        │   └── chatbot/page.tsx  # Public standalone chat surface; iframed by embed.js
         ├── (portal)/             # Authenticated student shell
-        │   ├── layout.tsx        # Header + sidebar + OutstandingFeesBanner
+        │   ├── layout.tsx        # Header + sidebar + OutstandingFeesBanner + ChatbotWidget
         │   ├── dashboard/page.tsx
         │   ├── register/page.tsx         # Course selection with prereq/clash UI (Client)
         │   ├── timetable/page.tsx        # Weekly timetable + .ics export (Server Component)
@@ -130,7 +136,11 @@ FNU Web Portal MVP/
         │   ├── admin/applications/
         │   │   ├── page.tsx                          # Application queue
         │   │   └── [id]/page.tsx                     # Application detail + actions
-        │   └── admin/finance/page.tsx                # Reconciliation + bank-confirm UI
+        │   ├── admin/finance/page.tsx                # Reconciliation + bank-confirm UI
+        │   └── admin/chatbot/
+        │       ├── knowledge/page.tsx                # FAQ CRUD (admin-only writes)
+        │       ├── conversations/page.tsx            # Conversation log + detail modal
+        │       └── analytics/page.tsx                # KPI cards + top categories
         └── (lecturer)/           # Lecturer shell
             ├── layout.tsx
             └── lecturer/page.tsx
@@ -267,7 +277,9 @@ FNU Web Portal MVP/
 | `(admin)` | `/admin/*` | Admin shell |
 | `(lecturer)` | `/lecturer/*` | Lecturer shell |
 
-**Public paths (middleware bypass):** `/`, `/login`, `/apply`, `/api/auth`, `/verify`, `/offer`
+**Public paths (middleware bypass):** `/`, `/login`, `/apply`, `/api/auth`, `/verify`, `/offer`, `/embed`
+
+**Embed route headers:** `/embed/*` sends `Content-Security-Policy: frame-ancestors <NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS>` (default `*`) and does **not** set `X-Frame-Options`. All other routes keep `X-Frame-Options: DENY`.
 
 ---
 
@@ -313,6 +325,7 @@ FNU Web Portal MVP/
 | `NEXTAUTH_URL` | `.env` / docker env | Canonical app URL (`http://localhost` in Docker, `http://localhost:3000` in dev) |
 | `INTERNAL_API_URL` | Docker Compose env | Backend URL for SSR fetches inside Docker (`http://backend:8000`); **never** use `NEXT_PUBLIC_*` for SSR |
 | `NEXT_PUBLIC_API_URL` | `.env` | Client-side API base URL (empty string in Docker because nginx proxies `/api`) |
+| `NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS` | `.env` | `frame-ancestors` value for `/embed/*` responses. Default `*` (MVP); tighten in prod to FNU main-site origins |
 
 ---
 
@@ -389,4 +402,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 8 complete (Payment Gateway: M-PAiSA/MyCash/Bank Transfer adapters, stub for dev, plan engine, reconciliation UI, finance confirmation). Part 9 (AI Chatbot) is next.*
+*Last updated: Part 10 complete (Chatbot UI: portal floating widget wired to `/api/chat`, three admin screens — FAQ/Log/Analytics, standalone `/embed/chatbot` route + `public/embed/chatbot.js` iframe bootstrapper, middleware `frame-ancestors` handling). Part 11 (Profile / Student ID / Notifications) is next.*

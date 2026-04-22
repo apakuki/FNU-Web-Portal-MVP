@@ -463,20 +463,20 @@ Deliver TOR 2.3 frontend: embedded floating chatbot widget, conversation UI, plu
 
 ### Substeps
 
-- [ ] Build floating widget as a Client Component rendered in the authenticated portal layout — bottom-right, minimised by default, expand on click
-- [ ] Build conversation UI: message list, input, send, typing indicator, escalation banner
-- [ ] Wire to `/api/chat` with streaming (Next.js App Router handles streaming responses natively) if the backend exposes SSE; batched otherwise
-- [ ] Build admin training-data UI at `app/(admin)/chatbot/knowledge/`: list, add, edit, delete FAQ; upload documents
-- [ ] Build admin query log UI at `app/(admin)/chatbot/conversations/`: searchable list, filterable by category, status, date
-- [ ] Build admin analytics UI at `app/(admin)/chatbot/analytics/`: total queries, resolution rate, top categories, escalation rate
-- [ ] Ship a standalone embeddable widget bundle (separate Next.js route or a dedicated build target) that can be dropped into the FNU main website via a single `<script>` tag
+- [x] Build floating widget as a Client Component rendered in the authenticated portal layout — bottom-right, minimised by default, expand on click
+- [x] Build conversation UI: message list, input, send, typing indicator, escalation banner
+- [x] Wire to `/api/chat` (batched JSON — backend returns full reply plus sources; streaming deferred)
+- [x] Build admin training-data UI at `app/(admin)/admin/chatbot/knowledge/`: list, add, edit, soft-delete FAQ
+- [x] Build admin query log UI at `app/(admin)/admin/chatbot/conversations/`: searchable, filterable, detail modal with full message history
+- [x] Build admin analytics UI at `app/(admin)/admin/chatbot/analytics/`: total queries, resolution rate, top categories, escalation rate
+- [x] Ship a standalone embeddable widget — dedicated `/embed/chatbot` route plus `public/embed/chatbot.js` bootstrapper that injects an iframe; a third-party site embeds with a single `<script>` tag
 
 ### Security Hardening
 
-- [ ] Embeddable widget: restrict to allowed origins via postMessage origin checks and CSP frame-ancestors
-- [ ] Chat input: sanitise and escape all user input before rendering in the conversation UI (prevent XSS)
-- [ ] Widget does not expose auth tokens — uses session cookie only
-- [ ] Standalone bundle: include Subresource Integrity (SRI) hash in the `<script>` tag
+- [x] Embeddable widget: middleware sets `Content-Security-Policy: frame-ancestors <allowed>` on `/embed/*` and removes `X-Frame-Options` only there (all other routes keep `X-Frame-Options: DENY`). Allowed origins controlled by `NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS`
+- [x] Chat input/reply: rendered as React text (auto-escaped); backend rejects FAQ entries containing `<script>`/`javascript:`/`onerror=`/`onload=` markers
+- [x] Widget: portal mode passes `Authorization: Bearer` header from the next-auth session; embed mode is anonymous — no token exposure cross-origin
+- [ ] Standalone bundle: Subresource Integrity (SRI) hash in the `<script>` tag (deferred — requires release pipeline that hashes the static file; documented as prod-deployment task)
 
 ### Tests
 

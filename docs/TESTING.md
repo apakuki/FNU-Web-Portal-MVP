@@ -1130,3 +1130,194 @@ Run this checklist before any production deployment or after any security-relate
 - [ ] Callback with incorrect signature returns 400 Invalid signature (not a generic 500)
 - [ ] Production config refuses `PAYMENTS_MODE=stub` at startup (pydantic ValidationError)
 - [ ] Production config with `PAYMENTS_MODE=live` but missing `MPAISA_SECRET` raises a clear error
+
+---
+
+## Part 9: AI Chatbot Backend
+
+### Prerequisites
+
+- Part 3 verified (auth working, seed data loaded)
+- `.env` has `OPENROUTER_API_KEY` set, and `CHATBOT_MODE=live` if you want real LLM replies; otherwise `CHATBOT_MODE=stub` uses a deterministic canned reply
+
+### Public chat endpoint (`POST /api/chat`)
+
+**1. Unauthenticated request (no bearer token)**
+
+```bash
+curl -s -X POST http://localhost/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"When does semester 2 start?"}' | python3 -m json.tool
+```
+
+Expected:
+- 200 OK with `session_key`, `reply`, `escalated` (boolean), `sources` (array of FAQ titles)
+- `session_key` is a new URL-safe token you can reuse on follow-ups
+
+**2. Continuing a conversation (reuse `session_key`)**
+
+Repeat the request with the `session_key` from step 1. The backend loads prior turns and answers in context. Verify in the admin conversations log (Part 10) that both turns are persisted under the same row.
+
+**3. Authenticated student request**
+
+Log in as `student@fnu.ac.fj`, copy the Bearer token, then:
+
+```bash
+curl -s -X POST http://localhost/api/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"message":"What is my balance?"}'
+```
+
+- The student's programme, balance, and registered courses are included in the LLM prompt (see `services/chatbot_service.py::compose_messages`)
+- Reply references the student's invoice balance when relevant
+- If Banner is unreachable, the chat still completes (context gracefully missing)
+
+**4. Escalation detection**
+
+Send: `"I want to speak to a human"` — response has `escalated: true`, `escalation_reason` populated, and a row is written to `enquiries` with `source="chatbot"`.
+
+**5. PII masking**
+
+Send a message containing an email address and phone number; verify the admin conversation log shows the content with the email replaced by `[email]` and the phone by `[phone]` (see `mask_pii` helper).
+
+**6. Rate limit**
+
+Fire 31 requests in 60 seconds from the same IP — the 31st returns 429 (`30/minute` limit on `/api/chat`).
+
+### Admin knowledge CRUD
+
+Log in as admin and confirm from curl or Swagger:
+
+- [ ] `GET /api/admin/chatbot/knowledge` returns the 10 seeded FAQ entries
+- [ ] `POST /api/admin/chatbot/knowledge` creates a new entry and audit log row
+- [ ] `POST` body containing `<script>` in title or content is rejected 400
+- [ ] `PUT /api/admin/chatbot/knowledge/{id}` updates an entry; audit log has before/after
+- [ ] `DELETE /api/admin/chatbot/knowledge/{id}` flips `is_active=false` (soft delete) and writes an audit log
+- [ ] A staff user can read but not write (POST/PUT/DELETE return 403)
+
+### Automated tests
+
+```bash
+cd backend && uv run pytest tests/test_chatbot_api.py tests/test_chatbot_service.py -v
+```
+
+All tests pass.
+
+---
+
+## Part 10: Chatbot UI (Widget, Admin, Embed)
+
+### Prerequisites
+
+- Part 9 verified (backend endpoints working)
+- Stack running (`./scripts/start.sh`)
+
+### Floating widget (student portal)
+
+**1. Widget appears in the portal**
+
+- Log in as `student@fnu.ac.fj`; navigate to any authenticated page (`/dashboard`, `/timetable`, etc.)
+- A round blue launcher button is pinned to the bottom-right corner
+- Click it: a 360x480 panel opens with the greeting "Hi! I'm the FNU chatbot..."
+
+**2. Happy path**
+
+- Type "When does semester 2 start?" and press Send
+- "Typing…" bubble appears while the request is in flight
+- Within a second or two the assistant reply appears; sources (FAQ titles) appear beneath
+- `sessionStorage.getItem("fnu_chatbot_session")` is populated (DevTools → Application → Session Storage)
+
+**3. Multi-turn continuity**
+
+- Ask a follow-up without reloading the page
+- Admin → Chatbot Log shows one conversation row with 4 messages (2 user + 2 assistant)
+
+**4. Escalation path**
+
+- Ask "I need to speak to a human"
+- Reply appears plus a yellow banner: "This enquiry has been flagged for staff…"
+- Admin → Chatbot Log → row is marked `escalated`; Admin → Enquiries has a new `chatbot` enquiry
+
+**5. Error handling**
+
+- Stop the backend container (`docker stop fnu-backend`) and send a message
+- The UI shows a small red error line beneath the messages, and the input re-enables so the user can retry
+- Restart the backend; retry works
+
+**6. Mobile (375px)**
+
+- Shrink the browser to 375px wide; the panel resizes to `calc(100vw - 2rem)` and remains usable
+- Launcher button does not overlap primary portal content
+
+**7. Auth header**
+
+- DevTools → Network → `POST /api/chat`; confirm the `Authorization: Bearer …` header is present for logged-in students
+- The saved conversation (Admin → Chatbot Log) has `user_id` populated — not anon
+
+### Admin — Chatbot FAQ (`/admin/chatbot/knowledge`)
+
+- [ ] Log in as `admin@fnu.ac.fj`; sidebar has "Chatbot FAQ", "Chatbot Log", "Chatbot Analytics"
+- [ ] List shows all 10 seeded FAQ entries
+- [ ] "Add Entry" form — create a new entry with tags "admissions, fees"; it appears at the top of the list on refresh
+- [ ] "Edit" loads the entry into the form; save updates it in place
+- [ ] "Deactivate" prompts for confirmation, soft-deletes; "Show inactive" toggle reveals it with a `inactive` tag
+- [ ] Creating an entry whose content contains `<script>` shows a red inline error (400 from backend)
+- [ ] Logged in as `staff@fnu.ac.fj`, the "Add Entry" form returns 403 on submit (staff can read, not write)
+
+### Admin — Chatbot Log (`/admin/chatbot/conversations`)
+
+- [ ] List shows the most recent conversations (updated_at desc), 25 per page
+- [ ] "Escalated only" filter narrows to escalated rows
+- [ ] Search box accepts session key fragments or category names
+- [ ] Clicking a row opens a modal with the full message history; PII in messages is masked
+- [ ] Prev/Next paginate through older conversations
+
+### Admin — Chatbot Analytics (`/admin/chatbot/analytics`)
+
+- [ ] Four KPI cards: Total, Escalated (with %), Resolved (with %), Active FAQ entries
+- [ ] 7/30/90 day buttons reload the analytics for that window
+- [ ] Top escalation categories table shows grouped counts (empty state if none)
+
+### Embeddable widget
+
+**1. Standalone embed page**
+
+Open http://localhost/embed/chatbot directly. The entire viewport is the chat UI (no portal shell, no session header). Launcher/close button is hidden. You can ask a question as an anonymous visitor.
+
+**2. Iframe bootstrapper**
+
+Open `/Users/apakuki/Documents/Consulting/FNU Web Portal MVP/docs/embed-test.html` (or any static HTML file) containing only:
+
+```html
+<!doctype html>
+<html><body>
+  <h1>Test host</h1>
+  <script src="http://localhost/embed/chatbot.js"></script>
+</body></html>
+```
+
+- A round blue launcher appears bottom-right
+- Clicking it toggles an iframe pointing to `/embed/chatbot`
+- The chat works end-to-end against the live backend
+
+**3. Security headers**
+
+```bash
+curl -sI http://localhost/embed/chatbot | grep -iE "x-frame|content-security"
+```
+
+- `X-Frame-Options` is **absent** (removed specifically for /embed)
+- `Content-Security-Policy: frame-ancestors *` is present (or the configured `NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS` list)
+
+On any non-embed page (e.g. `/dashboard`) confirm `X-Frame-Options: DENY` is still set.
+
+### Automated tests
+
+```bash
+cd frontend && npx vitest run
+cd frontend && npx tsc --noEmit
+cd frontend && npx next build
+```
+
+All frontend tests pass; TypeScript is clean; build completes including `/embed/chatbot` and the three `/admin/chatbot/*` pages.

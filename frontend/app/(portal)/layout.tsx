@@ -4,6 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
 
+import ChatbotWidget from "@/components/ChatbotWidget";
 import { OutstandingFeesBanner } from "@/components/outstanding-fees-banner";
 import { PortalNav } from "@/components/portal-nav";
 
@@ -14,6 +15,7 @@ export default function PortalLayout({
 }) {
   const { data: session } = useSession();
   const user = session?.user as any;
+  const accessToken = (user?.accessToken as string | undefined) ?? null;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -91,6 +93,8 @@ export default function PortalLayout({
           </div>
         </main>
       </div>
+
+      <ChatbotWidget accessToken={accessToken} />
     </div>
   );
 }
