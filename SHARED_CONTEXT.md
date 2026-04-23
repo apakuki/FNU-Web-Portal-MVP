@@ -41,9 +41,12 @@ FNU Web Portal MVP/
 │   │   │   ├── payments.py       # POST /api/payments/initiate|callback/*|bank-confirm
 │   │   │   │                     # GET /api/payments/reconciliation (json|csv)
 │   │   │   │                     # GET /api/account; POST /api/account/plan
-│   │   │   └── chatbot.py        # POST /api/chat (public; auth-aware)
-│   │   │                         # CRUD /api/admin/chatbot/knowledge
-│   │   │                         # GET /api/admin/chatbot/conversations|analytics
+│   │   │   ├── chatbot.py        # POST /api/chat (public; auth-aware)
+│   │   │   │                     # CRUD /api/admin/chatbot/knowledge
+│   │   │   │                     # GET /api/admin/chatbot/conversations|analytics
+│   │   │   ├── admin_students.py # GET/POST /api/admin/students(/{id}/overrides)
+│   │   │   │                     # GET /api/admin/dashboard/summary
+│   │   │   └── admin_enquiries.py # CRUD /api/admin/enquiries + feedback
 │   │   ├── payments/
 │   │   │   ├── base.py           # PaymentAdapter ABC; InitiateRequest/Response; CallbackResult
 │   │   │   ├── signature.py      # HMAC-SHA256 sign_payload / verify_signature (constant-time)
@@ -86,7 +89,9 @@ FNU Web Portal MVP/
 │       ├── test_banner_factory.py
 │       ├── test_applications.py
 │       ├── test_registration.py
-│       └── test_payments.py
+│       ├── test_payments.py
+│       ├── test_admin_students.py   # Part 12 — search, overrides, schemas
+│       └── test_admin_enquiries.py  # Part 12 — enquiry workflow, feedback
 └── frontend/
     ├── package.json              # Next.js 15, next-auth, zod, vitest, @testing-library
     ├── tsconfig.json             # paths: { "@/*": ["./*"] }
@@ -137,10 +142,16 @@ FNU Web Portal MVP/
         │   │   ├── page.tsx                          # Application queue
         │   │   └── [id]/page.tsx                     # Application detail + actions
         │   ├── admin/finance/page.tsx                # Reconciliation + bank-confirm UI
-        │   └── admin/chatbot/
-        │       ├── knowledge/page.tsx                # FAQ CRUD (admin-only writes)
-        │       ├── conversations/page.tsx            # Conversation log + detail modal
-        │       └── analytics/page.tsx                # KPI cards + top categories
+        │   ├── admin/chatbot/
+        │   │   ├── knowledge/page.tsx                # FAQ CRUD (admin-only writes)
+        │   │   ├── conversations/page.tsx            # Conversation log + detail modal
+        │   │   └── analytics/page.tsx                # KPI cards + top categories
+        │   ├── admin/students/
+        │   │   ├── page.tsx                          # Student search + list (Part 12)
+        │   │   └── [id]/page.tsx                     # Detail + manual overrides
+        │   └── admin/enquiries/
+        │       ├── page.tsx                          # Queue with filters + log form
+        │       └── [id]/page.tsx                     # Detail, assign, resolve, feedback
         └── (lecturer)/           # Lecturer shell
             ├── layout.tsx
             └── lecturer/page.tsx
@@ -285,6 +296,13 @@ FNU Web Portal MVP/
 | `/api/admin/communications/batch` | `api/communications.py` | `require_role("admin","staff")` — filtered batch send with content hash |
 | `/api/admin/notifications` | `api/communications.py` | `require_role("admin","staff")` — recent dispatches |
 | `/api/admin/notifications/stats` | `api/communications.py` | `require_role("admin","staff")` — today's counts by status |
+| `/api/admin/students` | `api/admin_students.py` | `require_role("staff","admin")` — search/paginate (Part 12) |
+| `/api/admin/students/{user_id}` | `api/admin_students.py` | `require_role("staff","admin")` — merged detail from portal + Banner |
+| `/api/admin/students/{user_id}/overrides` | `api/admin_students.py` | `require_role("staff","admin")` — POST/GET; mandatory reason, audit-logged |
+| `/api/admin/dashboard/summary` | `api/admin_students.py` | `require_role("staff","admin")` — pending counts + processing-time metrics |
+| `/api/admin/enquiries` | `api/admin_enquiries.py` | `require_role("staff","admin")` — list/create |
+| `/api/admin/enquiries/{id}` | `api/admin_enquiries.py` | `require_role("staff","admin")` — GET/PUT; note locked after write |
+| `/api/admin/enquiries/{id}/feedback` | `api/admin_enquiries.py` | `require_role("staff","admin")` — record student rating 1–5 (resolved only) |
 
 **Note:** `registration_router` and `payments_router` are included without a prefix (routes define their own `/api/...` paths).
 
@@ -301,6 +319,7 @@ FNU Web Portal MVP/
 
 **Admin routes added in Part 11:** `(admin)/admin/communications/` — template list + batch-send panel.
 **Portal routes added in Part 11:** `(portal)/profile/`, `(portal)/id-card/`.
+**Admin routes added in Part 12:** `(admin)/admin/students/` (+ `[id]`) and `(admin)/admin/enquiries/` (+ `[id]`); admin dashboard now renders live counts + processing-time cards.
 
 **Embed route headers:** `/embed/*` sends `Content-Security-Policy: frame-ancestors <NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS>` (default `*`) and does **not** set `X-Frame-Options`. All other routes keep `X-Frame-Options: DENY`.
 
@@ -435,4 +454,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 10 complete (Chatbot UI: portal floating widget wired to `/api/chat`, three admin screens — FAQ/Log/Analytics, standalone `/embed/chatbot` route + `public/embed/chatbot.js` iframe bootstrapper, middleware `frame-ancestors` handling). Part 11 (Profile / Student ID / Notifications) is next.*
+*Last updated: Part 12 complete (Staff Administration Panel: student search + merged detail view pulling portal DB and Banner, manual override endpoints (prereq waiver / late registration / overload) with mandatory reason and audit log, enquiry queue with assignment / status workflow / locked resolution note / student feedback, admin dashboard cards showing live counts and processing-time averages. Part 13 — Lecturer interface — is next.)*

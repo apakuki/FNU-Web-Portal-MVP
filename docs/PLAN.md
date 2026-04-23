@@ -553,21 +553,21 @@ Deliver TOR 2.4: application management (already largely in Part 6, finish remai
 
 ### Substeps
 
-- [ ] Build student search API (by ID, name, programme, campus, enrolment status) and UI at `app/(admin)/students/`
-- [ ] Build student detail view: personal, programme, courses, payments, grades, letters, notes
-- [ ] Build manual override endpoints: prereq waiver, late registration, overload — mandatory reason, audit logged
-- [ ] Build enquiry management UI at `app/(admin)/enquiries/`: log, assignment, status transitions (open → in_progress → resolved), student feedback prompt on resolution
-- [ ] Build processing-time dashboard cards (receipt timestamp → decision timestamp)
-- [ ] Wire audit_log writes on every override and status change
+- [x] Build student search API (by ID, name, programme, campus, enrolment status) and UI at `app/(admin)/students/`
+- [x] Build student detail view: personal, programme, courses, payments, grades, letters, notes
+- [x] Build manual override endpoints: prereq waiver, late registration, overload — mandatory reason, audit logged
+- [x] Build enquiry management UI at `app/(admin)/enquiries/`: log, assignment, status transitions (open → in_progress → resolved), student feedback prompt on resolution
+- [x] Build processing-time dashboard cards (receipt timestamp → decision timestamp)
+- [x] Wire audit_log writes on every override and status change
 
 ### Security Hardening
 
-- [ ] All admin endpoints: require_role("staff", "admin") enforced via shared dependency
-- [ ] Student search: parameterised queries only (ORM); sanitise search input to prevent injection
-- [ ] Manual overrides (prereq waiver, late registration): require mandatory reason field; audit log captures before/after state, actor, timestamp, IP
-- [ ] Student detail view: scoped to admin role — students cannot view other students' records
-- [ ] Enquiry management: assignment changes audit-logged; resolution notes cannot be edited after submission
-- [ ] Export endpoints (CSV/Excel): require_role("admin", "staff"); log every export with actor and filter criteria
+- [x] All admin endpoints: require_role("staff", "admin") enforced via shared dependency
+- [x] Student search: parameterised queries only (ORM); sanitise search input to prevent injection
+- [x] Manual overrides (prereq waiver, late registration): require mandatory reason field; audit log captures before/after state, actor, timestamp, IP
+- [x] Student detail view: scoped to admin role — students cannot view other students' records
+- [x] Enquiry management: assignment changes audit-logged; resolution notes cannot be edited after submission
+- [ ] Export endpoints (CSV/Excel): require_role("admin", "staff"); log every export with actor and filter criteria (deferred — exports land in Part 14 alongside the KPI dashboard)
 
 ### Tests
 

@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from src.backend.api.admin_enquiries import router as admin_enquiries_router
+from src.backend.api.admin_students import router as admin_students_router
 from src.backend.api.applications import router as applications_router
 from src.backend.api.auth import router as auth_router
 from src.backend.api.banner import router as banner_router
@@ -62,6 +64,8 @@ def create_app() -> FastAPI:
     app.include_router(profile_router)
     app.include_router(id_card_router)
     app.include_router(communications_router)
+    app.include_router(admin_students_router)
+    app.include_router(admin_enquiries_router)
 
     return app
 

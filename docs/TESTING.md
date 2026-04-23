@@ -1403,3 +1403,75 @@ cd frontend && npx tsc --noEmit
 ```
 
 Part 11 adds 25 backend tests (6 ID card signer, 6 notification service, 7 profile API, 6 photo processor). Full backend suite now passes 188 tests; frontend remains at 22.
+
+---
+
+## Part 12: Staff Administration Panel
+
+### Setup
+
+- [ ] Stack running (`./scripts/start.sh`) with `BANNER_MODE=mock`
+- [ ] DB migrated through `c3d4e5f6a7b8` and `python -m src.backend.seed` has run (seeds 8 users including `student@fnu.ac.fj`, `staff@fnu.ac.fj`, `admin@fnu.ac.fj`)
+- [ ] Logged in as `admin@fnu.ac.fj` / `admin123` in one browser and as `student@fnu.ac.fj` / `student123` in another
+
+### Admin dashboard cards
+
+- [ ] Navigate to `/admin`; five cards render without error (Pending applications, Open enquiries, Active students, Avg. application decision, Avg. enquiry resolution)
+- [ ] The three linked cards (pending applications, open enquiries, active students) are keyboard-navigable and the focus ring is visible
+- [ ] Submit a new application via the public `/apply` flow and reload `/admin`; the "Pending applications" card increments by 1
+
+### Student search + detail
+
+- [ ] Navigate to **Students** in the admin sidebar
+- [ ] Type `apisai` into the search box; the row for `S00012345 · student@fnu.ac.fj` appears
+- [ ] Filter by Programme = `BNUR`; only the BNUR student remains
+- [ ] Click **View** on the Apisai row; the detail page shows programme BCOM, campus Nasinu, completed courses ACC101/MGT101/ECN101, current registrations (if any), invoice `INV-2026-S1-00001`
+- [ ] Empty-state: create a brand-new user with role=student and no Banner ID; detail view renders with "No Banner ID" header and empty programme/completed-courses sections
+
+### Manual overrides
+
+- [ ] On the Apisai detail page scroll to "Apply manual override"
+- [ ] Select **Prerequisite Waiver**, subject `ACC201`, reason `Student completed equivalent course at USP` (≥10 chars); click **Apply override** → success and new row appears under "Overrides applied"
+- [ ] Attempt with reason `too short` → frontend shows "Reason must be at least 10 characters"; no request is sent
+- [ ] `SELECT actor_user_id, action, target_id, reason FROM audit_log WHERE action LIKE 'override.%' ORDER BY occurred_at DESC LIMIT 3;` shows the override with the admin's user_id as actor
+- [ ] Check the `notifications` table — a row with `subject='Manual override applied — prereq waiver'` to the student's email exists
+- [ ] As the **student**, `curl -H "Authorization: Bearer <student_token>" -X POST http://localhost/api/admin/students/<admin_id>/overrides -d '{"override_type":"prereq_waiver","reason":"Trying to escalate"}' -H 'Content-Type: application/json'` returns 403
+
+### Enquiries: chatbot-escalated row
+
+- [ ] As the student, open the chatbot widget and send "I want to speak to a human about my balance" (this triggers escalation in Part 9)
+- [ ] As the admin, navigate to **Enquiries**; a new open enquiry appears at the top of the queue with source `chatbot`
+- [ ] Click **Open**; confirm subject/body captured from the conversation
+- [ ] Click **Assign to me**; page refreshes showing "Assigned to System Administrator"
+- [ ] Change Status to `in_progress`, click **Save changes** → status updates
+
+### Enquiries: resolution workflow
+
+- [ ] With the enquiry still open, try to save with Status=`resolved` and the note field blank → API returns 400 "Resolution note is required before marking resolved"
+- [ ] Type a note `Explained balance via phone call`, select Status=`resolved`, click **Save changes** → success; the note is now rendered read-only with the caption "Once saved, the resolution note cannot be edited"
+- [ ] Try PUT with a different `resolution_note` via curl → 400 "Resolution note cannot be edited once written"
+- [ ] A Student feedback card now appears; pick `5` and click **Record feedback** → rating displays
+- [ ] Attempt to POST feedback again via curl → 400 "Feedback has already been recorded"
+
+### Enquiries: staff-logged entry
+
+- [ ] Click **Log enquiry** on the queue; leave subject blank and click Save → "Subject and body are required"
+- [ ] Fill subject=`Transcript request`, body=`Student called for an official transcript`, source=`phone`, student identifier=`S00012346`; save → the enquiry appears in the queue with source `phone`
+- [ ] `SELECT action, target_id FROM audit_log WHERE action='enquiry.create' ORDER BY occurred_at DESC LIMIT 1;` returns the new enquiry
+
+### Processing-time metrics
+
+- [ ] Approve the application created in the first section via `/admin/applications/<id>` and reload `/admin`
+- [ ] The "Avg. application decision" card now displays a non-empty value (minutes or hours)
+- [ ] Resolve the enquiry above and reload `/admin`; the "Avg. enquiry resolution" card populates
+
+### Automated tests
+
+```bash
+cd backend && .venv/bin/python -m pytest tests/test_admin_students.py tests/test_admin_enquiries.py -v
+cd backend && .venv/bin/python -m pytest tests/ -q
+cd frontend && npx vitest run
+cd frontend && npx tsc --noEmit
+```
+
+Part 12 adds 23 backend tests (11 students/overrides, 12 enquiries). Full backend suite now passes 211 tests; frontend remains at 22.
