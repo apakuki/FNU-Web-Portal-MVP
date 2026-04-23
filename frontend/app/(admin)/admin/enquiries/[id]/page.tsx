@@ -88,12 +88,12 @@ export default function AdminEnquiryDetailPage() {
     setActionError("");
     setSaving(true);
     try {
-      const me = await apiFetch<{ id: string }>("/api/auth/me");
+      const me = await apiFetch<{ user: { id: string } }>("/api/auth/me");
       const updated = await apiFetch<EnquiryDetail>(
         `/api/admin/enquiries/${id}`,
         {
           method: "PUT",
-          body: JSON.stringify({ assigned_staff_id: me.id }),
+          body: JSON.stringify({ assigned_staff_id: me.user.id }),
         },
       );
       setData(updated);
