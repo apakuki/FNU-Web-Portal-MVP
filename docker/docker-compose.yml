@@ -39,6 +39,11 @@ services:
       - "3000:3000"
     environment:
       INTERNAL_API_URL: "http://backend:8000"
+      NEXTAUTH_URL: "${NEXTAUTH_URL:-http://localhost}"
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET:-dev-nextauth-secret-change-me-32-plus-chars-xxxxxxxxxx}"
+    env_file:
+      - path: ../.env
+        required: false
     depends_on:
       - backend
 
@@ -48,6 +53,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./_proxy_common.conf:/etc/nginx/conf.d/_proxy_common.conf:ro
     depends_on:
       - frontend
       - backend
