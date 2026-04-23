@@ -35,6 +35,7 @@ def test_factory_rejects_mock_in_production(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("MPAISA_SECRET", "test-secret")
     monkeypatch.setenv("MYCASH_MERCHANT_ID", "test-merchant")
     monkeypatch.setenv("MYCASH_SECRET", "test-secret")
+    monkeypatch.setenv("ID_CARD_SECRET", "c" * 64)
 
     from src.backend.config import Settings
 

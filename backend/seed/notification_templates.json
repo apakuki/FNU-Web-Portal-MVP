@@ -1,0 +1,79 @@
+[
+  {
+    "code": "payment.reminder",
+    "name": "Payment due reminder",
+    "channel": "email",
+    "subject_template": "FNU Portal — Payment due for invoice {invoice_id}",
+    "body_template": "Hi {full_name},\n\nThis is a friendly reminder that invoice {invoice_id} for FJ${amount_fjd} is due on {due_date}.\n\nYou can pay online at {portal_url}/pay or use the payment plan at {portal_url}/account.\n\nIf you've already paid, please disregard this message.\n\n— FNU Student Services"
+  },
+  {
+    "code": "payment.overdue",
+    "name": "Payment overdue",
+    "channel": "email",
+    "subject_template": "FNU Portal — Overdue invoice {invoice_id}",
+    "body_template": "Hi {full_name},\n\nInvoice {invoice_id} for FJ${amount_fjd} was due on {due_date} and is now overdue.\n\nPlease settle this balance at {portal_url}/pay to avoid further action.\n\n— FNU Student Services"
+  },
+  {
+    "code": "payment.deregistration_warning",
+    "name": "De-registration warning",
+    "channel": "email",
+    "subject_template": "FNU Portal — De-registration warning for invoice {invoice_id}",
+    "body_template": "Hi {full_name},\n\nInvoice {invoice_id} remains unpaid and we are now {weeks_overdue} weeks past the due date. If payment is not received within the next 7 days, your course registration will be cancelled.\n\nContact Finance or pay online at {portal_url}/pay.\n\n— FNU Student Services"
+  },
+  {
+    "code": "payment.confirmed",
+    "name": "Payment confirmed",
+    "channel": "email",
+    "subject_template": "FNU Portal — Payment confirmed",
+    "body_template": "Hi {full_name},\n\nWe've received your payment of FJ${amount_fjd} for invoice {invoice_id}. Reference: {reference}.\n\nYou can view your payment history at {portal_url}/account.\n\n— FNU Student Services"
+  },
+  {
+    "code": "registration.confirmation",
+    "name": "Course registration confirmation",
+    "channel": "email",
+    "subject_template": "FNU Portal — Registration confirmed for {semester}",
+    "body_template": "Hi {full_name},\n\nYour course registration for {semester} is confirmed. Invoice {invoice_id} (FJ${amount_fjd}) has been generated.\n\nView your timetable at {portal_url}/timetable and your courses at {portal_url}/courses.\n\n— FNU Student Services"
+  },
+  {
+    "code": "application.submitted",
+    "name": "Application submitted",
+    "channel": "email",
+    "subject_template": "FNU — Application {application_number} received",
+    "body_template": "Hi {full_name},\n\nThank you for applying to FNU. We've received your application ({application_number}) and it is now under review.\n\nYou'll hear from us within 10 business days. Questions? Reply to this email.\n\n— FNU Admissions"
+  },
+  {
+    "code": "application.status_change",
+    "name": "Application status updated",
+    "channel": "email",
+    "subject_template": "FNU — Your application status has changed",
+    "body_template": "Hi {full_name},\n\nYour application {application_number} status is now: {status}.\n\n{status_note}\n\nView details at {portal_url}/applications/{application_number}.\n\n— FNU Admissions"
+  },
+  {
+    "code": "offer.issued",
+    "name": "Offer issued",
+    "channel": "email",
+    "subject_template": "FNU — Your offer is ready",
+    "body_template": "Hi {full_name},\n\nCongratulations! Your offer for {programme_name} is ready. Accept or decline via the link below:\n\n{portal_url}/offer/{token}\n\nThis link expires in 7 days.\n\n— FNU Admissions"
+  },
+  {
+    "code": "deadline.reminder",
+    "name": "Deadline reminder",
+    "channel": "email",
+    "subject_template": "FNU Portal — {deadline_name} on {deadline_date}",
+    "body_template": "Hi {full_name},\n\nReminder: {deadline_name} closes on {deadline_date}.\n\n{details}\n\n— FNU Student Services"
+  },
+  {
+    "code": "sms.payment_due",
+    "name": "Payment due (SMS)",
+    "channel": "sms",
+    "subject_template": null,
+    "body_template": "FNU: Invoice {invoice_id} FJ${amount_fjd} due {due_date}. Pay: {portal_url}/pay"
+  },
+  {
+    "code": "sms.offer_issued",
+    "name": "Offer issued (SMS)",
+    "channel": "sms",
+    "subject_template": null,
+    "body_template": "FNU: Your offer is ready. Accept: {portal_url}/offer/{token} (expires in 7 days)"
+  }
+]

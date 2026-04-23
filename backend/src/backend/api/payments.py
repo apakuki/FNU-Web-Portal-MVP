@@ -172,7 +172,6 @@ async def initiate_payment(
     await db.commit()
 
     await write_audit_log(
-        db,
         actor_user_id=user.id,
         action="payment.initiate",
         target_type="payment",
@@ -239,7 +238,6 @@ async def _handle_callback(
 
     if result.status == PaymentStatus.CONFIRMED:
         await send_notification(
-            db,
             channel="email",
             recipient_user_id=attempt.user_id,
             subject="Payment Confirmed",
@@ -249,7 +247,6 @@ async def _handle_callback(
         )
 
     await write_audit_log(
-        db,
         actor_user_id=None,
         action="payment.callback",
         target_type="payment",
@@ -314,7 +311,6 @@ async def bank_confirm(
     await db.commit()
 
     await write_audit_log(
-        db,
         actor_user_id=user.id,
         action="payment.bank_confirm",
         target_type="payment",
@@ -325,7 +321,6 @@ async def bank_confirm(
     )
 
     await send_notification(
-        db,
         channel="email",
         recipient_user_id=attempt.user_id,
         subject="Bank Transfer Confirmed",
@@ -536,7 +531,6 @@ async def create_payment_plan(
     await db.commit()
 
     await write_audit_log(
-        db,
         actor_user_id=user.id,
         action="payment.plan.create",
         target_type="payment_plan",

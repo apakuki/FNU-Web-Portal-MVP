@@ -504,28 +504,28 @@ Deliver TOR 2.1.6, 2.1.10: My Account (balance, payment history, instalment sche
 
 ### Substeps
 
-- [ ] Build `GET /api/account` — current balance, payment history, instalment schedule with status indicators
-- [ ] Build outstanding-fees banner logic in the portal shell (render when overdue exists)
-- [ ] Build `GET /api/profile`, `PUT /api/profile` — address, phone, email, emergency contact
-- [ ] Build `POST /api/profile/photo` — 2MB max, resized to 400x400 on the backend, stored securely
-- [ ] Build digital student ID card view at `app/(portal)/id-card/` with signed QR payload
-- [ ] Build `/verify/[qr_payload]/` public Server Component route returning student photo, name, programme, validity
-- [ ] Build notification service in the backend: queue → sender → status writeback
-- [ ] Implement email sender (SMTP via Mailtrap in dev, SendGrid/Mailgun in prod)
-- [ ] Implement SMS sender (Vodafone Fiji SMS API or mock)
-- [ ] Seed `notification_templates` with: payment reminder, registration confirmation, de-registration warning, deadline, offer issued, application status changes
-- [ ] Build admin UI at `app/(admin)/communications/` for sending batch SMS/email to filtered student groups (TOR 2.4.3)
+- [x] Build `GET /api/account` — current balance, payment history, instalment schedule with status indicators (delivered Part 8)
+- [x] Build outstanding-fees banner logic in the portal shell (render when overdue exists)
+- [x] Build `GET /api/profile`, `PUT /api/profile` — address, phone, email, emergency contact
+- [x] Build `POST /api/profile/photo` — 2MB max, resized to 400x400 on the backend, stored securely
+- [x] Build digital student ID card view at `app/(portal)/id-card/` with signed QR payload
+- [x] Build `/verify/[qr_payload]/` public Server Component route returning student photo, name, programme, validity
+- [x] Build notification service in the backend: queue → sender → status writeback
+- [x] Implement email sender (SMTP via Mailtrap in dev, SendGrid/Mailgun in prod)
+- [x] Implement SMS sender (Vodafone Fiji SMS API or mock)
+- [x] Seed `notification_templates` with: payment reminder, registration confirmation, de-registration warning, deadline, offer issued, application status changes
+- [x] Build admin UI at `app/(admin)/communications/` for sending batch SMS/email to filtered student groups (TOR 2.4.3)
 
 ### Security Hardening
 
-- [ ] Photo upload: validate magic bytes (not just extension/MIME), strip EXIF data (GPS, device info), resize server-side
-- [ ] Photo storage: randomised filenames, stored outside web root, served via signed URLs or auth-gated endpoint
-- [ ] Profile update: users can only update their own profile (scope to authenticated user's ID)
-- [ ] QR payload: cryptographically signed (HMAC-SHA256) — verification page validates signature before displaying info
-- [ ] QR verification page (/verify/[qr]): display only non-sensitive info (name, programme, validity) — no grades, balance, or contact info
-- [ ] Notification templates: sanitise all variable interpolation to prevent injection in email/SMS bodies
-- [ ] Batch communications: require_role("admin", "staff") with audit log of sender, recipient count, and content hash
-- [ ] SMTP/SMS credentials: stored in `.env`, never logged
+- [x] Photo upload: validate magic bytes (not just extension/MIME), strip EXIF data (GPS, device info), resize server-side
+- [x] Photo storage: bytes held in the DB (`profile_photos.image_data`, `LargeBinary`), served via auth-gated `/api/profile/photo/me` endpoint — never on the filesystem
+- [x] Profile update: users can only update their own profile (scope to authenticated user's ID)
+- [x] QR payload: cryptographically signed (HMAC-SHA256) — verification page validates signature before displaying info
+- [x] QR verification page (/verify/[qr]): display only non-sensitive info (name, programme, validity) — no grades, balance, or contact info
+- [x] Notification templates: sanitise all variable interpolation to prevent injection in email/SMS bodies (CR/LF stripped, 500-char clamp, non-identifier keys rejected)
+- [x] Batch communications: require_role("admin", "staff") with audit log of sender, recipient count, and content hash
+- [x] SMTP/SMS credentials: stored in `.env`, never logged
 
 ### Tests
 

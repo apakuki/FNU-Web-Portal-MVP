@@ -2,21 +2,38 @@
 
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import ChatbotWidget from "@/components/ChatbotWidget";
 import { OutstandingFeesBanner } from "@/components/outstanding-fees-banner";
 import { PortalNav } from "@/components/portal-nav";
+import { apiFetch } from "@/lib/api-client";
 
 export default function PortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const user = session?.user as any;
   const accessToken = (user?.accessToken as string | undefined) ?? null;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [balanceCents, setBalanceCents] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (status !== "authenticated" || user?.role !== "student") return;
+    let cancelled = false;
+    apiFetch<{ balance_cents: number }>("/api/account")
+      .then((data) => {
+        if (!cancelled) setBalanceCents(data.balance_cents);
+      })
+      .catch(() => {
+        if (!cancelled) setBalanceCents(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, user?.role]);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -88,7 +105,7 @@ export default function PortalLayout({
 
         <main className="min-h-[calc(100vh-57px)] flex-1 px-4 py-6 lg:px-8">
           <div className="mx-auto max-w-5xl">
-            <OutstandingFeesBanner balanceCents={null} />
+            <OutstandingFeesBanner balanceCents={balanceCents} />
             <div className="mt-4">{children}</div>
           </div>
         </main>

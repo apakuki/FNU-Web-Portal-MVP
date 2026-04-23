@@ -9,6 +9,7 @@ const ADMIN_LINKS = [
   { href: "/admin", label: "Admin Dashboard" },
   { href: "/admin/applications", label: "Applications" },
   { href: "/admin/finance", label: "Finance" },
+  { href: "/admin/communications", label: "Communications" },
   { href: "/admin/chatbot/knowledge", label: "Chatbot FAQ" },
   { href: "/admin/chatbot/conversations", label: "Chatbot Log" },
   { href: "/admin/chatbot/analytics", label: "Chatbot Analytics" },

@@ -5,10 +5,13 @@ from pathlib import Path
 from sqlalchemy import select
 
 from src.backend.auth import hash_password
-from src.backend.db.models import ChatbotKnowledge, User
+from src.backend.db.models import ChatbotKnowledge, NotificationTemplate, User
 from src.backend.db.session import async_session_factory
 
 FAQ_SEED_PATH = Path(__file__).resolve().parents[2] / "seed" / "chatbot_faq.json"
+TEMPLATES_SEED_PATH = (
+    Path(__file__).resolve().parents[2] / "seed" / "notification_templates.json"
+)
 
 SEED_USERS = [
     {
@@ -115,10 +118,37 @@ async def seed_chatbot_faq(session) -> None:
         print(f"  created FAQ: {entry['title']}")
 
 
+async def seed_notification_templates(session) -> None:
+    if not TEMPLATES_SEED_PATH.exists():
+        print(f"  skipped templates seed (missing file: {TEMPLATES_SEED_PATH})")
+        return
+
+    entries = json.loads(TEMPLATES_SEED_PATH.read_text())
+    for entry in entries:
+        existing = await session.scalar(
+            select(NotificationTemplate).where(NotificationTemplate.code == entry["code"])
+        )
+        if existing:
+            print(f"  exists template: {entry['code']}")
+            continue
+        session.add(
+            NotificationTemplate(
+                code=entry["code"],
+                name=entry["name"],
+                channel=entry["channel"],
+                subject_template=entry.get("subject_template"),
+                body_template=entry["body_template"],
+                is_active=True,
+            )
+        )
+        print(f"  created template: {entry['code']}")
+
+
 async def seed() -> None:
     async with async_session_factory() as session:
         await seed_users(session)
         await seed_chatbot_faq(session)
+        await seed_notification_templates(session)
         await session.commit()
     print("Seed complete.")
 

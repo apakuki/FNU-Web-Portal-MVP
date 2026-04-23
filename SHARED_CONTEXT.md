@@ -165,6 +165,9 @@ FNU Web Portal MVP/
 | `KpiDefinition` | `kpi_definitions` | KPI metadata |
 | `KpiValue` | `kpi_values` | Recorded KPI data points |
 | `Notification` | `notifications` | Outbound notification records |
+| `NotificationTemplate` | `notification_templates` | Email/SMS templates, keyed by `code`; `{variable}` interpolation |
+| `StudentProfile` | `student_profiles` | Address + emergency contact; 1:1 with `users` |
+| `ProfilePhoto` | `profile_photos` | Resized 400x400 JPEG bytes in `LargeBinary`, 1:1 with `users` |
 | `AuditLog` | `audit_log` | Immutable action log (BigInteger PK) |
 
 **Note:** Course registrations, timetables, and invoices are sourced from Banner (not stored locally). Banner is the system of record for academic data.
@@ -216,7 +219,13 @@ FNU Web Portal MVP/
 | `reset_banner_client` | `banner/__init__.py` | Clears singleton — use in tests |
 | `get_session` | `db/session.py` | FastAPI Depends — yields `AsyncSession` |
 | `write_audit_log` | `services/audit_service.py` | `(*, actor_user_id, action, target_type, target_id, before, after, reason, ip_address)` — fire-and-forget |
-| `send_notification` | `services/notification_service.py` | `(*, channel, recipient_email, recipient_phone, recipient_user_id, subject, body, template_code)` — stub, logs to DB |
+| `send_notification` | `services/notification_service.py` | `(*, channel, recipient_email, recipient_phone, recipient_user_id, subject, body, template_code)` — dispatches via SMTP/HTTP (or stub) then writes a row to `notifications` |
+| `send_template` | `services/notification_service.py` | `(*, code, variables, recipient_email, recipient_phone, …)` — lookup template by code, render, dispatch |
+| `render_template` | `services/notification_service.py` | `(template, variables) -> str` — `{name}` interpolation with CR/LF stripped and 500-char clamp per variable |
+| `render_template_by_code` | `services/notification_service.py` | `(code, variables) -> (subject, body, channel) \| None` |
+| `process_profile_photo` | `api/profile.py` | `(raw, max_bytes, target_size) -> (jpeg_bytes, mime)` — validates magic bytes, strips EXIF, crops + resizes |
+| `sign_id_card` | `services/id_card_service.py` | `(*, user_id, banner_id, validity_days?) -> (qr_payload, expires_at)` — HMAC-SHA256 signed, URL-safe |
+| `verify_id_card` | `services/id_card_service.py` | `(qr) -> dict` — raises `InvalidIdCardSignature` or `ExpiredIdCard` |
 | `check_prerequisites` | `api/registration.py` | `(course_code, prerequisites, completed) -> (bool, list[str])` |
 | `detect_clashes` | `api/registration.py` | `(offerings: list[Offering]) -> list[dict]` — time overlap detection |
 | `calculate_gpa` | `api/registration.py` | `(courses: list[CompletedCourse]) -> float` — weighted by credits |
@@ -265,6 +274,17 @@ FNU Web Portal MVP/
 | `/api/payments/reconciliation` | `api/payments.py` | `require_role("finance","admin")`; `format=csv` streams CSV |
 | `/api/account` | `api/payments.py` | `require_role("student")` — balance, history, plan |
 | `/api/account/plan` | `api/payments.py` | `require_role("student")` — creates instalment plan |
+| `/api/profile` (GET/PUT) | `api/profile.py` | Authenticated — scoped to own user |
+| `/api/profile/photo` (POST) | `api/profile.py` | Authenticated — 2 MB max; magic-byte check, EXIF strip, resize |
+| `/api/profile/photo/me` | `api/profile.py` | Authenticated — returns own photo bytes |
+| `/api/admin/students/{user_id}/photo` | `api/profile.py` | `require_role("admin","staff","lecturer")` |
+| `/api/id-card` | `api/id_card.py` | `require_role("student")` — returns signed QR payload + verify URL |
+| `/api/verify/{qr}` | `api/id_card.py` | None — public verification; returns only non-sensitive info |
+| `/api/verify/{qr}/photo` | `api/id_card.py` | None — public photo bytes, signature-gated |
+| `/api/admin/notification-templates` | `api/communications.py` | `require_role("admin","staff")` (GET), `admin` only for upserts |
+| `/api/admin/communications/batch` | `api/communications.py` | `require_role("admin","staff")` — filtered batch send with content hash |
+| `/api/admin/notifications` | `api/communications.py` | `require_role("admin","staff")` — recent dispatches |
+| `/api/admin/notifications/stats` | `api/communications.py` | `require_role("admin","staff")` — today's counts by status |
 
 **Note:** `registration_router` and `payments_router` are included without a prefix (routes define their own `/api/...` paths).
 
@@ -278,6 +298,9 @@ FNU Web Portal MVP/
 | `(lecturer)` | `/lecturer/*` | Lecturer shell |
 
 **Public paths (middleware bypass):** `/`, `/login`, `/apply`, `/api/auth`, `/verify`, `/offer`, `/embed`
+
+**Admin routes added in Part 11:** `(admin)/admin/communications/` — template list + batch-send panel.
+**Portal routes added in Part 11:** `(portal)/profile/`, `(portal)/id-card/`.
 
 **Embed route headers:** `/embed/*` sends `Content-Security-Policy: frame-ancestors <NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS>` (default `*`) and does **not** set `X-Frame-Options`. All other routes keep `X-Frame-Options: DENY`.
 
@@ -310,12 +333,22 @@ FNU Web Portal MVP/
 | `MYCASH_SECRET` | `` | Yes when live | MyCash HMAC secret |
 | `MYCASH_API_URL` | `https://sandbox.digicel.com.fj/mycash/api` | No | MyCash base URL |
 | `MYCASH_CALLBACK_URL` | `http://localhost/api/payments/callback/mycash` | Yes | Public callback URL |
-| `SMTP_HOST` | `sandbox.smtp.mailtrap.io` | Part 11 | SMTP server |
-| `SMTP_PORT` | `587` | Part 11 | SMTP port |
-| `SMTP_USER` | `` | Part 11 | SMTP credentials |
-| `SMTP_PASS` | `` | Part 11 | SMTP credentials |
-| `SMTP_FROM` | `noreply@portal.fnu.ac.fj` | Part 11 | Sender address |
-| `SMS_PROVIDER` | `stub` | Part 11 | `stub` or `vodafone` |
+| `SMTP_HOST` | `sandbox.smtp.mailtrap.io` | When `NOTIFICATIONS_MODE=live` | SMTP server |
+| `SMTP_PORT` | `587` | No | SMTP port |
+| `SMTP_USER` | `` | When live | SMTP credentials (validator enforces) |
+| `SMTP_PASS` | `` | When live | SMTP credentials (validator enforces) |
+| `SMTP_FROM` | `noreply@portal.fnu.ac.fj` | No | Sender address |
+| `SMTP_USE_TLS` | `True` | No | STARTTLS toggle |
+| `SMS_PROVIDER` | `stub` | When SMS sending is needed in prod | `stub` or `vodafone` |
+| `SMS_API_URL` | `` | When `SMS_PROVIDER=vodafone` | SMS provider HTTP endpoint |
+| `SMS_API_KEY` | `` | When `SMS_PROVIDER=vodafone` | SMS provider bearer token |
+| `SMS_FROM` | `FNU` | No | Short-code / sender ID |
+| `NOTIFICATIONS_MODE` | `stub` | Prod → `live` | `stub` logs only; `live` uses SMTP + SMS |
+| `ID_CARD_SECRET` | `id-card-change-me` | Yes (≥32 chars) | HMAC secret for QR payload signing |
+| `ID_CARD_VALIDITY_DAYS` | `365` | No | Lifetime of a signed QR card |
+| `PROFILE_PHOTO_MAX_BYTES` | `2097152` | No | 2 MB upload cap |
+| `PROFILE_PHOTO_TARGET_SIZE` | `400` | No | Square resize target in pixels |
+| `PUBLIC_APP_URL` | `http://localhost` | Yes in prod | Used to build QR `/verify/<qr>` URLs |
 
 ### Frontend (Next.js env conventions)
 

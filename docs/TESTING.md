@@ -1321,3 +1321,85 @@ cd frontend && npx next build
 ```
 
 All frontend tests pass; TypeScript is clean; build completes including `/embed/chatbot` and the three `/admin/chatbot/*` pages.
+
+---
+
+## Part 11: Profile, Student ID, Notifications
+
+### Setup
+
+- [ ] Backend running with `NOTIFICATIONS_MODE=stub` (email/SMS logged, not sent) and `BANNER_MODE=mock`
+- [ ] `ID_CARD_SECRET` set to any dev value (default `id-card-change-me` is fine outside production)
+- [ ] DB migration `c3d4e5f6a7b8_part11_profile_photos_templates` applied (`alembic upgrade head`)
+- [ ] `python -m src.backend.seed` has been run so `notification_templates` contains 11 seeded templates
+- [ ] Logged in as a student (e.g. `student@fnu.ac.fj`) in one browser; logged in as an admin in a second browser
+
+### Profile view (`/profile`)
+
+- [ ] Navigate to **Profile** from the portal sidebar; page loads with name, email, Banner ID pre-filled
+- [ ] Empty emergency contact and address fields render as editable inputs (no crash)
+- [ ] Edit phone to `+679 999 1234`, address to `1 Samabula Rd`, city to `Suva`; press Save; success toast appears
+- [ ] Reload the page; changes persist
+- [ ] Enter phone `not-a-phone!!!`; Save; a 400-style error surfaces without the page crashing
+- [ ] Change email to an address belonging to another seeded user; expect "Email already in use"
+
+### Profile photo upload
+
+- [ ] From the Profile page, upload a 300x300 JPEG; the preview thumbnail updates within a few seconds
+- [ ] Upload a `.txt` file renamed to `.jpg`; expect a 400 error "Only JPEG/PNG/WebP images are accepted"
+- [ ] Upload an image > 2 MB; expect a 413 "Photo exceeds maximum size" error
+- [ ] `curl -H "Authorization: Bearer <token>" http://localhost/api/profile/photo/me -o /tmp/me.jpg` returns a 400x400 JPEG
+- [ ] Run `python -c "from PIL import Image; print(Image.open('/tmp/me.jpg').info)"` — output contains no `exif` key
+
+### Digital Student ID (`/id-card`)
+
+- [ ] Navigate to **Student ID** from the portal sidebar
+- [ ] Card renders with photo (if uploaded), full name, Banner ID, expiry date, and a QR code
+- [ ] Scan the QR with a phone → it opens `<host>/verify/<payload>`
+- [ ] The verify page shows the student photo, name, Banner ID, programme, and "Valid until" date
+- [ ] Confirm the verify page does NOT show email, phone, grades, or balance
+- [ ] Tamper the URL (change one character in `<payload>`) → page renders "Invalid or tampered QR code"
+
+### Notification service (stub mode)
+
+- [ ] With `NOTIFICATIONS_MODE=stub`, tail the backend logs
+- [ ] Trigger a payment confirmation (complete a stub M-PAiSA callback as in Part 8)
+- [ ] Backend logs show `[email/stub] to=…@… subject=Payment Confirmed`
+- [ ] `SELECT status, template_code, recipient_email FROM notifications ORDER BY queued_at DESC LIMIT 5;` shows the most recent row with `status='sent'`
+
+### Admin communications (`/admin/communications`)
+
+- [ ] As admin, navigate to **Communications**
+- [ ] Template list shows the 11 seeded templates (payment.*, application.*, offer.issued, deadline.reminder, sms.*)
+- [ ] Pick `payment.reminder`, set `Role = student`, set `variables = {"full_name":"Preview","invoice_id":"INV-TEST","amount_fjd":"100.00","due_date":"2026-05-01","portal_url":"https://portal.fnu.ac.fj"}`, click **Preview** → recipient count and content hash returned, zero actually sent
+- [ ] Click **Send**; "Sent X of Y" message appears; the Recent notifications list shows rows with `status='sent'`
+- [ ] `SELECT action, after FROM audit_log WHERE action LIKE 'communications.batch.%' ORDER BY created_at DESC LIMIT 2;` shows both a `preview` and a `send` entry with matching `content_hash`
+- [ ] As a **student** (non-admin), `curl -H "Authorization: Bearer <student_token>" -X POST http://localhost/api/admin/communications/batch -d '{...}' -H 'Content-Type: application/json'` returns 403
+
+### Template injection safety
+
+- [ ] `curl -X POST .../api/admin/communications/batch -d '{"template_code":"payment.reminder","role":"student","variables":{"full_name":"Eve\r\nBcc: attacker@evil.com"},"dry_run":true}'` succeeds
+- [ ] The rendered body contains no `Bcc:` header injection — CR/LF characters are stripped from interpolated values
+
+### QR signature / expiry
+
+```bash
+# Forge a payload with a bad signature
+curl -s http://localhost/api/verify/AAA.BBB | jq
+# -> {"valid":false,"reason":"Invalid or tampered QR code"}
+
+# Expired card — temporarily set ID_CARD_VALIDITY_DAYS=0 in backend env
+curl -s http://localhost/api/id-card -H "Authorization: Bearer <student_token>" | jq -r .qr_payload | xargs -I{} curl -s http://localhost/api/verify/{} | jq
+# -> {"valid":false,"reason":"ID card has expired"}
+```
+
+### Automated tests
+
+```bash
+cd backend && .venv/bin/python -m pytest tests/test_id_card_service.py tests/test_notification_service.py tests/test_profile_api.py tests/test_profile_photo.py -v
+cd backend && .venv/bin/python -m pytest tests/ -q
+cd frontend && npx vitest run
+cd frontend && npx tsc --noEmit
+```
+
+Part 11 adds 25 backend tests (6 ID card signer, 6 notification service, 7 profile API, 6 photo processor). Full backend suite now passes 188 tests; frontend remains at 22.

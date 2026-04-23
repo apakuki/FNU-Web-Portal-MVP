@@ -11,8 +11,11 @@ from src.backend.api.applications import router as applications_router
 from src.backend.api.auth import router as auth_router
 from src.backend.api.banner import router as banner_router
 from src.backend.api.chatbot import router as chatbot_router
+from src.backend.api.communications import router as communications_router
 from src.backend.api.health import router as health_router
+from src.backend.api.id_card import router as id_card_router
 from src.backend.api.payments import router as payments_router
+from src.backend.api.profile import router as profile_router
 from src.backend.api.registration import router as registration_router
 from src.backend.config import settings
 from src.backend.rate_limit import limiter
@@ -56,6 +59,9 @@ def create_app() -> FastAPI:
     app.include_router(registration_router)
     app.include_router(payments_router)
     app.include_router(chatbot_router)
+    app.include_router(profile_router)
+    app.include_router(id_card_router)
+    app.include_router(communications_router)
 
     return app
 
