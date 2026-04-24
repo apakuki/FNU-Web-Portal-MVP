@@ -46,7 +46,9 @@ FNU Web Portal MVP/
 │   │   │   │                     # GET /api/admin/chatbot/conversations|analytics
 │   │   │   ├── admin_students.py # GET/POST /api/admin/students(/{id}/overrides)
 │   │   │   │                     # GET /api/admin/dashboard/summary
-│   │   │   └── admin_enquiries.py # CRUD /api/admin/enquiries + feedback
+│   │   │   ├── admin_enquiries.py # CRUD /api/admin/enquiries + feedback
+│   │   │   └── lecturer/         # GET /api/lecturer/rosters(/{id}/export)
+│   │   │                         # POST /api/lecturer/grades (+submit/finalise)
 │   │   ├── payments/
 │   │   │   ├── base.py           # PaymentAdapter ABC; InitiateRequest/Response; CallbackResult
 │   │   │   ├── signature.py      # HMAC-SHA256 sign_payload / verify_signature (constant-time)
@@ -91,7 +93,8 @@ FNU Web Portal MVP/
 │       ├── test_registration.py
 │       ├── test_payments.py
 │       ├── test_admin_students.py   # Part 12 — search, overrides, schemas
-│       └── test_admin_enquiries.py  # Part 12 — enquiry workflow, feedback
+│       ├── test_admin_enquiries.py  # Part 12 — enquiry workflow, feedback
+│       └── test_lecturer.py         # Part 13 — rosters, grade workflow, exports
 └── frontend/
     ├── package.json              # Next.js 15, next-auth, zod, vitest, @testing-library
     ├── tsconfig.json             # paths: { "@/*": ["./*"] }
@@ -154,7 +157,11 @@ FNU Web Portal MVP/
         │       └── [id]/page.tsx                     # Detail, assign, resolve, feedback
         └── (lecturer)/           # Lecturer shell
             ├── layout.tsx
-            └── lecturer/page.tsx
+            └── lecturer/
+                ├── page.tsx                          # Dashboard cards (Part 13)
+                ├── courses/page.tsx                  # Course list + roster badges
+                ├── courses/[offeringId]/page.tsx     # Roster + grade entry grid
+                └── grades/page.tsx                   # Quick-pick per course
 ```
 
 ---
@@ -177,6 +184,7 @@ FNU Web Portal MVP/
 | `KpiValue` | `kpi_values` | Recorded KPI data points |
 | `Notification` | `notifications` | Outbound notification records |
 | `NotificationTemplate` | `notification_templates` | Email/SMS templates, keyed by `code`; `{variable}` interpolation |
+| `LecturerGrade` | `lecturer_grades` | Part 13 — draft/submitted/finalised grade rows per (offering, student, assessment_period) |
 | `StudentProfile` | `student_profiles` | Address + emergency contact; 1:1 with `users` |
 | `ProfilePhoto` | `profile_photos` | Resized 400x400 JPEG bytes in `LargeBinary`, 1:1 with `users` |
 | `AuditLog` | `audit_log` | Immutable action log (BigInteger PK) |
@@ -303,6 +311,13 @@ FNU Web Portal MVP/
 | `/api/admin/enquiries` | `api/admin_enquiries.py` | `require_role("staff","admin")` — list/create |
 | `/api/admin/enquiries/{id}` | `api/admin_enquiries.py` | `require_role("staff","admin")` — GET/PUT; note locked after write |
 | `/api/admin/enquiries/{id}/feedback` | `api/admin_enquiries.py` | `require_role("staff","admin")` — record student rating 1–5 (resolved only) |
+| `/api/lecturer/rosters` | `api/lecturer/__init__.py` | `require_role("lecturer")` — offerings the lecturer teaches + grading counts |
+| `/api/lecturer/rosters/{offering_id}` | `api/lecturer/__init__.py` | `require_role("lecturer")` — roster detail scoped to owner; 404 otherwise |
+| `/api/lecturer/rosters/{offering_id}/export` | `api/lecturer/__init__.py` | `require_role("lecturer")` — `format=csv\|xlsx\|pdf` (xlsx = CSV bytes; PDF via WeasyPrint) |
+| `/api/lecturer/grades` (POST) | `api/lecturer/__init__.py` | `require_role("lecturer")` — upsert draft grades; rejects edits on submitted/finalised |
+| `/api/lecturer/grades/{offering_id}/submit` | `api/lecturer/__init__.py` | `require_role("lecturer")` — draft → submitted; requires all grades filled |
+| `/api/lecturer/grades/{offering_id}/finalise` | `api/lecturer/__init__.py` | `require_role("lecturer")` — submitted → finalised; writes to Banner |
+| `/api/lecturer/grades/{offering_id}` (GET) | `api/lecturer/__init__.py` | `require_role("lecturer")` — current grade entries with workflow status |
 
 **Note:** `registration_router` and `payments_router` are included without a prefix (routes define their own `/api/...` paths).
 
@@ -320,6 +335,7 @@ FNU Web Portal MVP/
 **Admin routes added in Part 11:** `(admin)/admin/communications/` — template list + batch-send panel.
 **Portal routes added in Part 11:** `(portal)/profile/`, `(portal)/id-card/`.
 **Admin routes added in Part 12:** `(admin)/admin/students/` (+ `[id]`) and `(admin)/admin/enquiries/` (+ `[id]`); admin dashboard now renders live counts + processing-time cards.
+**Lecturer routes added in Part 13:** `(lecturer)/lecturer/courses/` (+ `[offeringId]` with autosaving grade entry grid) and `(lecturer)/lecturer/grades/` (course picker); dashboard shows offering / student / grading counts.
 
 **Embed route headers:** `/embed/*` sends `Content-Security-Policy: frame-ancestors <NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS>` (default `*`) and does **not** set `X-Frame-Options`. All other routes keep `X-Frame-Options: DENY`.
 
@@ -402,7 +418,7 @@ require_role("student") → wraps get_current_user, adds role check
 | admin | `admin@fnu.ac.fj` | `admin123` | — |
 | staff | `staff@fnu.ac.fj` | `staff123` | — |
 | finance | `finance@fnu.ac.fj` | `finance123` | — |
-| lecturer | `lecturer@fnu.ac.fj` | `lecturer123` | `L00010001` |
+| lecturer | `lecturer@fnu.ac.fj` | `lecturer123` | `L00010001` (teaches ACC101 + ACC201) |
 | manager | `manager@fnu.ac.fj` | `manager123` | — |
 | vc | `vc@fnu.ac.fj` | `vc123456` | — |
 
@@ -454,4 +470,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 12 complete (Staff Administration Panel: student search + merged detail view pulling portal DB and Banner, manual override endpoints (prereq waiver / late registration / overload) with mandatory reason and audit log, enquiry queue with assignment / status workflow / locked resolution note / student feedback, admin dashboard cards showing live counts and processing-time averages. Part 13 — Lecturer interface — is next.)*
+*Last updated: Part 13 complete (Lecturer Interface: `/api/lecturer/rosters` lists the authenticated lecturer's offerings with grading counts, `/api/lecturer/rosters/{id}` returns the scoped roster merged with draft/submitted/finalised grade rows, `/api/lecturer/rosters/{id}/export` serves CSV / Excel-compatible CSV / PDF; `/api/lecturer/grades` upserts draft grades with autosave, `/submit` locks drafts for review, `/finalise` writes through to Banner via `submit_grade`; `lecturer_grades` table persists the workflow and every state transition is audit-logged. Frontend: `(lecturer)/lecturer/page.tsx` dashboard cards, `(lecturer)/lecturer/courses/` list + roster/grade-entry detail page with per-student grade select, status badges, and three export buttons. Part 14 — KPI dashboard — is next.)*

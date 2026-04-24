@@ -16,6 +16,7 @@ from src.backend.api.chatbot import router as chatbot_router
 from src.backend.api.communications import router as communications_router
 from src.backend.api.health import router as health_router
 from src.backend.api.id_card import router as id_card_router
+from src.backend.api.lecturer import router as lecturer_router
 from src.backend.api.payments import router as payments_router
 from src.backend.api.profile import router as profile_router
 from src.backend.api.registration import router as registration_router
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(communications_router)
     app.include_router(admin_students_router)
     app.include_router(admin_enquiries_router)
+    app.include_router(lecturer_router)
 
     return app
 

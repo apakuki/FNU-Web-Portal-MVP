@@ -11,6 +11,12 @@ const LECTURER_LINKS = [
   { href: "/lecturer/grades", label: "Enter Grades" },
 ];
 
+function isLinkActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  if (href === "/lecturer") return pathname === "/lecturer";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export default function LecturerLayout({
   children,
 }: {
@@ -89,7 +95,7 @@ export default function LecturerLayout({
           <nav aria-label="Lecturer navigation">
             <ul className="space-y-1">
               {LECTURER_LINKS.map((link) => {
-                const active = pathname === link.href;
+                const active = isLinkActive(pathname, link.href);
                 return (
                   <li key={link.href}>
                     <Link

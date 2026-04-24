@@ -311,6 +311,29 @@ class NotificationTemplate(Base):
     )
 
 
+class LecturerGrade(Base):
+    __tablename__ = "lecturer_grades"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    offering_id: Mapped[str] = mapped_column(Text, nullable=False)
+    course_code: Mapped[str] = mapped_column(Text, nullable=False)
+    banner_student_id: Mapped[str] = mapped_column(Text, nullable=False)
+    semester: Mapped[str] = mapped_column(Text, nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    assessment_period: Mapped[str] = mapped_column(Text, nullable=False, default="final")
+    grade: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="draft")
+    entered_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finalised_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

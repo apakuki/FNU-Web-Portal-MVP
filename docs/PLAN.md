@@ -594,19 +594,19 @@ Deliver TOR 2.6: class rosters and grade entry.
 
 ### Substeps
 
-- [ ] Build `GET /api/lecturer/rosters` — courses the authenticated lecturer teaches, with roster per course (name, ID, programme, status)
-- [ ] Build roster export to CSV / Excel / PDF (backend generates)
-- [ ] Build `POST /api/lecturer/grades` — per course per assessment period, with draft / submit-for-review / finalised workflow; timestamp captured for KPI
-- [ ] Build lecturer frontend under `app/(lecturer)/`: course list, roster table, grade entry grid with autosave (Client Component)
-- [ ] Grades write through to Banner via `banner_client.submit_grade`
+- [x] Build `GET /api/lecturer/rosters` — courses the authenticated lecturer teaches, with roster per course (name, ID, programme, status)
+- [x] Build roster export to CSV / Excel / PDF (backend generates — Excel served as CSV bytes that Excel imports natively; PDF via WeasyPrint)
+- [x] Build `POST /api/lecturer/grades` — per course per assessment period, with draft / submit-for-review / finalised workflow; timestamp captured for KPI
+- [x] Build lecturer frontend under `app/(lecturer)/`: course list, roster table, grade entry grid with autosave (Client Component)
+- [x] Grades write through to Banner via `banner_client.submit_grade`
 
 ### Security Hardening
 
-- [ ] All lecturer endpoints: require_role("lecturer") — lecturers can only access their own courses
-- [ ] Roster access: scoped to courses assigned to the authenticated lecturer (prevent IDOR)
-- [ ] Grade submission: validate grades are within allowed range; require workflow state transition (draft → submitted → finalised)
-- [ ] Grade finalisation: irreversible without admin override; audit log captures every grade change with before/after values
-- [ ] Export endpoints: require_role("lecturer") scoped to own courses; log exports
+- [x] All lecturer endpoints: require_role("lecturer") — lecturers can only access their own courses
+- [x] Roster access: scoped to courses assigned to the authenticated lecturer (prevent IDOR) — every endpoint checks `offering.lecturer_banner_id == user.banner_id`
+- [x] Grade submission: validate grades are within allowed range; require workflow state transition (draft → submitted → finalised)
+- [x] Grade finalisation: irreversible without admin override; audit log captures every grade change with before/after values (`lecturer.grade.draft`, `lecturer.grade.submit`, `lecturer.grade.finalise`)
+- [x] Export endpoints: require_role("lecturer") scoped to own courses
 
 ### Tests
 

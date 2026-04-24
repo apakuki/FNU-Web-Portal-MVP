@@ -40,7 +40,7 @@ SEED_USERS = [
         "full_name": "Dr. Mere Tuisawau",
         "role": "lecturer",
         "password": "lecturer123",
-        "banner_id": "L00001",
+        "banner_id": "L00010001",
     },
     {
         "email": "manager@fnu.ac.fj",

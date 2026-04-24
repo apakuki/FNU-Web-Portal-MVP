@@ -1475,3 +1475,73 @@ cd frontend && npx tsc --noEmit
 ```
 
 Part 12 adds 23 backend tests (11 students/overrides, 12 enquiries). Full backend suite now passes 211 tests; frontend remains at 22.
+
+---
+
+## Part 13: Lecturer Interface
+
+### Setup
+
+- [ ] Stack running (`./scripts/start.sh`) with `BANNER_MODE=mock`
+- [ ] DB migrated through `d4e5f6a7b8c9` (`alembic upgrade head`)
+- [ ] `python -m src.backend.seed` has been run — the lecturer seed row has `banner_id=L00010001` (the lecturer for ACC101 + ACC201 in the mock Banner)
+- [ ] Logged in as `lecturer@fnu.ac.fj` / `lecturer123` in one browser and as `student@fnu.ac.fj` / `student123` in another
+
+### Lecturer dashboard
+
+- [ ] Navigate to `/lecturer`; three cards render (My Courses, Students Taught, Grading in Progress) without errors
+- [ ] Quick-action links route to `/lecturer/courses` and `/lecturer/grades`
+- [ ] A student visiting `/api/lecturer/rosters` directly (`curl -H "Authorization: Bearer <student_token>" http://localhost/api/lecturer/rosters`) receives 403
+
+### Rosters (`/lecturer/courses`)
+
+- [ ] The table lists two offerings for Dr. Tuisawau: `ACC101` (Monday 09-11, Nasinu) and `ACC201` (Monday 10-12, Nasinu)
+- [ ] Each row shows a student count (≥1) pulled from the mock roster and grading status "Not started"
+- [ ] Click **Roster & grades** on ACC101 — the detail page loads with three seeded students (Apisai Delana, Joeli Ravuama, Sera Koroi)
+
+### Grade entry + autosave
+
+- [ ] On the roster detail page, each student row is editable; pick a grade for Apisai (e.g. `B+`). Within about a second the top-right status switches to "Saving…" then "Saved"
+- [ ] Reload the page; the grade you selected persists and the row status shows `draft`
+- [ ] `SELECT status, grade, banner_student_id FROM lecturer_grades WHERE offering_id='OFF-2026-S1-ACC101-NAS';` shows the draft row
+- [ ] Picking a blank option for a student clears their draft grade (saved as null)
+- [ ] Attempting to POST `/api/lecturer/grades` with an invalid grade (`Z`) via curl returns 400 "Invalid grade 'Z'. Allowed: …"
+- [ ] Attempting to POST with a `banner_student_id` that is not on the roster returns 400 "… is not on this roster"
+
+### Submit for review
+
+- [ ] Without filling every grade, click **Submit for review** — the button is disabled while any cell is blank (client-side) and backend POST to `/api/lecturer/grades/{offering}/submit` also returns 400 with "All draft entries must have a grade before submitting"
+- [ ] Fill grades for every student, click **Submit for review** → the page flashes "Submitted N grades for review" and every row status switches to `submitted`
+- [ ] Attempting to edit a submitted row via the UI now disables the grade select; a direct POST to `/api/lecturer/grades` with that student returns 400 "has been submitted for review"
+
+### Finalise (writes to Banner)
+
+- [ ] Click **Finalise & write to Banner**; accept the confirmation prompt
+- [ ] The page flashes "Finalised N grades and wrote to Banner"; every row status is now `finalised`
+- [ ] Log in as `student@fnu.ac.fj` on the second browser and navigate to **My Grades** → ACC101 appears with the grade you entered (mock Banner reflects the `submit_grade` write on the next roster lookup)
+- [ ] `SELECT action, target_id FROM audit_log WHERE action LIKE 'lecturer.grade.%' ORDER BY occurred_at DESC LIMIT 5;` returns `lecturer.grade.draft`, `lecturer.grade.submit`, and `lecturer.grade.finalise` entries
+- [ ] Attempting to POST new drafts for the finalised offering returns 400 "is finalised and cannot be edited"
+
+### Exports
+
+- [ ] Click **Export CSV** → a `roster_ACC101.csv` downloads; open it and confirm columns `banner_student_id,student_name,email,attendance_pct,grade,status`
+- [ ] Click **Export Excel** → the download is still a CSV (content-type `application/vnd.ms-excel`); double-clicking opens it in Excel/Numbers with the same rows
+- [ ] Click **Export PDF** → a `roster_ACC101.pdf` downloads rendering the FNU-branded roster (requires `libpango`/`libcairo` in the image; falls back to a 500 with `PDF export unavailable` if WeasyPrint is missing locally)
+- [ ] `curl -H "Authorization: Bearer <student_token>" "http://localhost/api/lecturer/rosters/OFF-2026-S1-ACC101-NAS/export?format=csv"` returns 403
+
+### Ownership scoping (IDOR)
+
+- [ ] With the lecturer token, request `/api/lecturer/rosters/OFF-2026-S1-MGT101-NAS` (taught by L00010002) → 404 "Offering not found or not taught by you"
+- [ ] Attempting a grade upsert against that same offering returns 404
+
+### Automated tests
+
+```bash
+cd backend && .venv/bin/python -m pytest tests/test_lecturer.py -v
+cd backend && .venv/bin/python -m pytest tests/ -q
+cd frontend && npx vitest run
+cd frontend && npx tsc --noEmit
+cd frontend && npx next build
+```
+
+Part 13 adds 19 backend tests (schema validation, role guards, roster scoping, upsert rejections, submit/finalise workflow, Banner write-through, CSV export). Full backend suite now passes 230 tests; frontend remains at 22.

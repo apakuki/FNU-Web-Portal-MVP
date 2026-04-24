@@ -548,6 +548,146 @@ INVOICES: list[Invoice] = [
 ]
 
 
+CLASS_ROSTERS: dict[str, list[RosterEntry]] = {
+    "OFF-2026-S1-ACC101-NAS": [
+        RosterEntry(
+            banner_student_id="S00012345",
+            student_name="Apisai Delana",
+            email="student@fnu.ac.fj",
+            grade=None,
+            attendance_pct=92.5,
+        ),
+        RosterEntry(
+            banner_student_id="S00099001",
+            student_name="Joeli Ravuama",
+            email="joeli.ravuama@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=86.0,
+        ),
+        RosterEntry(
+            banner_student_id="S00099002",
+            student_name="Sera Koroi",
+            email="sera.koroi@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=78.5,
+        ),
+    ],
+    "OFF-2026-S1-ACC201-NAS": [
+        RosterEntry(
+            banner_student_id="S00099003",
+            student_name="Maciu Baleinaivalu",
+            email="maciu.b@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=90.0,
+        ),
+        RosterEntry(
+            banner_student_id="S00099004",
+            student_name="Salote Tupou",
+            email="salote.tupou@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=84.0,
+        ),
+    ],
+    "OFF-2026-S1-NUR101-SUV": [
+        RosterEntry(
+            banner_student_id="S00012346",
+            student_name="Litia Nabalarua",
+            email="student2@fnu.ac.fj",
+            grade=None,
+            attendance_pct=95.0,
+        ),
+        RosterEntry(
+            banner_student_id="S00099005",
+            student_name="Ana Tuimoce",
+            email="ana.tuimoce@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=88.0,
+        ),
+    ],
+    "OFF-2026-S1-MGT101-NAS": [
+        RosterEntry(
+            banner_student_id="S00099006",
+            student_name="Peniasi Tuilevuka",
+            email="peniasi.t@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=82.0,
+        ),
+    ],
+    "OFF-2026-S1-MKT201-NAS": [
+        RosterEntry(
+            banner_student_id="S00099007",
+            student_name="Meredani Koroi",
+            email="meredani.k@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=89.0,
+        ),
+    ],
+    "OFF-2026-S1-BIO101-NAS": [
+        RosterEntry(
+            banner_student_id="S00099008",
+            student_name="Ratu Josateki",
+            email="ratu.j@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=91.0,
+        ),
+    ],
+    "OFF-2026-S1-CHM101-NAS": [
+        RosterEntry(
+            banner_student_id="S00099009",
+            student_name="Vani Mocenicagi",
+            email="vani.m@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=87.0,
+        ),
+    ],
+    "OFF-2026-S1-IT101-NAS": [
+        RosterEntry(
+            banner_student_id="S00099010",
+            student_name="Rakesh Chand",
+            email="rakesh.c@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=84.0,
+        ),
+    ],
+    "OFF-2026-S1-IT102-NAS": [
+        RosterEntry(
+            banner_student_id="S00099011",
+            student_name="Anisha Prasad",
+            email="anisha.p@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=90.0,
+        ),
+    ],
+    "OFF-2026-S1-NUR201-SUV": [
+        RosterEntry(
+            banner_student_id="S00099012",
+            student_name="Mereani Vueti",
+            email="mereani.v@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=93.0,
+        ),
+    ],
+    "OFF-2026-S1-ECN101-NAS": [
+        RosterEntry(
+            banner_student_id="S00099013",
+            student_name="Josefa Raimasi",
+            email="josefa.r@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=80.0,
+        ),
+    ],
+    "OFF-2026-S1-EDU101-NAS": [
+        RosterEntry(
+            banner_student_id="S00099014",
+            student_name="Kelera Vuki",
+            email="kelera.v@student.fnu.ac.fj",
+            grade=None,
+            attendance_pct=86.0,
+        ),
+    ],
+}
+
+
 COMPLETED_COURSES: dict[str, list[CompletedCourse]] = {
     "S00012345": [
         CompletedCourse(
@@ -641,14 +781,21 @@ class MockBannerClient(BannerClient):
                 course = c
                 break
 
+        base_entries = CLASS_ROSTERS.get(offering_id, [])
+        grades_for_offering = {
+            g["banner_student_id"]: g["grade"]
+            for g in self._grades
+            if g["offering_id"] == offering_id
+        }
         entries = [
             RosterEntry(
-                banner_student_id="S00012345",
-                student_name="Apisai Delana",
-                email="student@fnu.ac.fj",
-                grade=None,
-                attendance_pct=92.5,
-            ),
+                banner_student_id=e.banner_student_id,
+                student_name=e.student_name,
+                email=e.email,
+                grade=grades_for_offering.get(e.banner_student_id, e.grade),
+                attendance_pct=e.attendance_pct,
+            )
+            for e in base_entries
         ]
 
         return ClassRoster(
