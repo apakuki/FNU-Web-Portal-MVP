@@ -23,10 +23,12 @@ from src.backend.api.payments import router as payments_router
 from src.backend.api.profile import router as profile_router
 from src.backend.api.registration import router as registration_router
 from src.backend.config import settings
+from src.backend.logging_config import configure_logging
 from src.backend.middleware import ResponseTimeMiddleware
 from src.backend.rate_limit import limiter
 from src.backend.scheduler import shutdown_scheduler, start_scheduler
 
+configure_logging()
 logger = logging.getLogger(__name__)
 
 

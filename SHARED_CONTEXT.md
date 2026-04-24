@@ -10,15 +10,25 @@ Quick reference for file locations, utility functions, and environment variables
 FNU Web Portal MVP/
 ├── .env                          # Local overrides (git-ignored)
 ├── .env.example                  # Template — copy to .env
+├── .env.production.example       # Part 16 — production env template with `REPLACE-*` placeholders rejected at startup
+├── .github/
+│   ├── workflows/ci.yml
+│   └── dependabot.yml            # Part 16 — pip/npm/docker/actions weekly updates
 ├── docker/
-│   └── docker-compose.yml        # 4 services: postgres, backend, frontend, proxy
+│   ├── docker-compose.yml        # 4 services: postgres, backend, frontend, proxy
+│   ├── docker-compose.prod.yml   # Part 16 — production stack: no host Postgres port, LOG_FORMAT=json, certbot sidecar, healthchecks
+│   ├── nginx.conf                # Dev reverse proxy
+│   └── nginx.prod.conf           # Part 16 — HTTPS with TLS 1.2/1.3 profile, HSTS preload, certbot ACME webroot
 ├── scripts/
 │   ├── start.sh                  # docker compose up --build -d
 │   ├── stop.sh                   # docker compose down
 │   ├── backup.sh                 # Part 15 — pg_dump + retention prune; cron-friendly
 │   ├── zap_baseline.sh           # Part 15 — OWASP ZAP baseline scan (Docker)
 │   ├── loadtest.sh               # Part 15 — Locust wrapper with configurable p95 threshold
-│   └── locustfile.py             # Part 15 — anon + student-auth scenarios
+│   ├── locustfile.py             # Part 15 — anon + student-auth scenarios
+│   ├── generate_secrets.sh       # Part 16 — openssl-based production secret generator (64-char hex)
+│   ├── smoke_test.sh             # Part 16 — post-deployment smoke test (TLS, headers, health, auth, unsigned-callback reject)
+│   └── uptime_monitor.sh         # Part 16 — cron-friendly /api/health poller, pages on 2 consecutive failures
 ├── docs/
 │   ├── PLAN.md                   # 16-part build checklist
 │   ├── ARCHITECTURE.md           # Component diagram, data flow, auth model
@@ -26,15 +36,23 @@ FNU Web Portal MVP/
 │   ├── BANNER_SURFACE.md         # Banner entity field reference and cache status
 │   ├── TESTING.md                # Manual test plans per part
 │   ├── TROUBLESHOOTING.md        # Diagnosis flowcharts per part
-│   └── SECURITY.md               # Part 15 — security reference (headers, rate limits, audit, deferred items, IR)
+│   ├── SECURITY.md               # Part 15 — security reference (headers, rate limits, audit, deferred items, IR)
+│   ├── DEPLOYMENT.md             # Part 16 — production deployment runbook (VM, DNS/CAA, TLS, DB bootstrap, rolling upgrade, rollback)
+│   ├── INCIDENT_RESPONSE.md      # Part 16 — severity levels, runbooks (credential compromise, outage, fraud, data corruption)
+│   ├── OPS_RUNBOOK.md            # Part 16 — daily checks, diagnostics, scheduled maintenance, user-account ops, release procedure
+│   ├── UAT_PLAN.md               # Part 16 — 5-day plan with 13 scenarios, 20 chatbot acceptance queries, sign-off criteria
+│   ├── TEST_REPORT.md            # Part 16 — D10 test report + UAT bug log template
+│   ├── USER_GUIDE_STUDENT.md     # Part 16 — student guide (applying → registration → payments → ID → chatbot → enquiries)
+│   └── USER_GUIDE_STAFF.md       # Part 16 — staff guide (admin, finance, lecturer, KPI, comms, audit)
 ├── backend/
 │   ├── pyproject.toml            # uv project; ruff, mypy config
 │   ├── src/backend/
-│   │   ├── main.py               # FastAPI app factory; registers all routers; ResponseTimeMiddleware wired here (Part 15)
+│   │   ├── main.py               # FastAPI app factory; configure_logging() + all routers; ResponseTimeMiddleware wired here (Part 15)
 │   │   ├── auth.py               # JWT helpers + FastAPI dependencies
-│   │   ├── config.py             # Pydantic Settings (reads .env)
+│   │   ├── config.py             # Pydantic Settings (reads .env). Part 16 — tightened validator rejects placeholder markers (`change-me`, `REPLACE`, `your-key-here`), enforces 32-char mins on JWT/ID_CARD/MPAISA/MYCASH secrets, https:// on BANNER_API_URL and PUBLIC_APP_URL
+│   │   ├── logging_config.py     # Part 16 — configure_logging() honours LOG_FORMAT=text|json + LOG_LEVEL; JsonFormatter for structured shippers
 │   │   ├── rate_limit.py         # slowapi Limiter singleton
-│   │   ├── middleware/           # Part 15 — ResponseTimeMiddleware (timing.py) logs response_ms + X-Response-Time-ms header
+│   │   ├── middleware/           # Part 15 — ResponseTimeMiddleware (timing.py) logs response_ms + X-Response-Time-ms header; Part 16 adds structured extras (method, path, status, response_ms) for JSON shippers
 │   │   ├── seed.py               # Idempotent dev-data seed (8 users)
 │   │   ├── api/
 │   │   │   ├── health.py         # GET /api/health
@@ -110,7 +128,9 @@ FNU Web Portal MVP/
 │       ├── test_lecturer.py         # Part 13 — rosters, grade workflow, exports
 │       ├── test_kpi.py              # Part 14 — traffic light, periods, RBAC, dashboards
 │       ├── test_security.py         # Part 15 — response-time header, auth-bypass, unsigned callbacks
-│       └── test_banner_audit.py     # Part 15 — AuditedBannerClient + token-bucket rate limiter
+│       ├── test_banner_audit.py     # Part 15 — AuditedBannerClient + token-bucket rate limiter
+│       ├── test_logging_config.py   # Part 16 — JsonFormatter fields, exception capture, configure_logging(text|json)
+│       └── test_config_validators.py # Part 16 — production Settings rejects placeholder markers + short secrets + http:// URLs
 └── frontend/
     ├── package.json              # Next.js 15, next-auth, zod, vitest, @testing-library; Part 15 adds @axe-core/playwright
     ├── playwright.config.ts      # Part 15 — 5 projects (chromium, firefox, webkit, mobile-chrome, mobile-safari)
@@ -427,6 +447,8 @@ FNU Web Portal MVP/
 | `PUBLIC_APP_URL` | `http://localhost` | Yes in prod | Used to build QR `/verify/<qr>` URLs |
 | `KPI_SCHEDULER_ENABLED` | `true` | No | Enables the APScheduler KPI recompute job. Set `false` in CI/tests. |
 | `KPI_COMPUTE_INTERVAL_MINUTES` | `60` | No | Interval between scheduled KPI recomputes |
+| `LOG_FORMAT` | `text` | No | Part 16 — `text` (dev, greppable key=value) or `json` (prod, one object per line for log shippers). `docker-compose.prod.yml` pins `json`. |
+| `LOG_LEVEL` | `INFO` | No | Part 16 — standard Python logging level name |
 
 ### Frontend (Next.js env conventions)
 
@@ -513,4 +535,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 15 complete (Non-functional hardening: `middleware/timing.py` logs `response_ms=` + sets `X-Response-Time-ms` on every response. `banner/audited_client.py` wraps the factory with `AuditedBannerClient` — rate-limits every call through a token bucket (`banner/rate_limit.py`, `BANNER_RATE_LIMIT_PER_SEC`) and writes `banner.register_course | banner.submit_grade | banner.create_invoice | banner.create_student` audit rows with actor from a ContextVar (`set_banner_actor`). Alembic `f6a7b8c9d0e1` adds 12 indexes across audit_log, notifications, enquiries, payment_attempts, applications, lecturer_grades, sessions. `/api/health` now reports scheduler + version + environment. Invoice PDF values escaped via `html.escape`. Frontend adds `error.tsx`, `global-error.tsx`, `not-found.tsx`. `playwright.config.ts` defines 5 browser projects; `tests/e2e/axe.spec.ts` is the axe-core + security-headers smoke. Scripts: `backup.sh` (pg_dump with retention), `zap_baseline.sh` (OWASP ZAP Docker), `loadtest.sh` + `locustfile.py` (configurable p95 threshold). New docs: `docs/SECURITY.md`. Test counts: 264 backend (added 14 in test_security.py + test_banner_audit.py), 22 frontend Vitest, Playwright axe spec runs on demand. Part 16 — UAT + deployment — is next.)*
+*Last updated: Part 16 complete (UAT + deployment + documentation + post-launch support: production docker-compose/nginx with TLS + Let's Encrypt + HSTS preload + certbot sidecar + JSON-log driver; `.env.production.example` with `REPLACE-*` placeholders rejected by `Settings.validate_secrets` (now enforces 32-char mins on JWT/ID_CARD/MPAISA/MYCASH secrets, https:// on BANNER_API_URL + PUBLIC_APP_URL, rejects `change-me`/`REPLACE`/`your-key-here` markers); `backend/src/backend/logging_config.py` adds `JsonFormatter` + `configure_logging()` honouring `LOG_FORMAT` / `LOG_LEVEL`; `middleware/timing.py` now emits structured extras (`method`, `path`, `status`, `response_ms`); `.github/dependabot.yml` for pip/npm/docker/actions; `scripts/generate_secrets.sh` (openssl 64-char hex), `scripts/smoke_test.sh` (post-deploy TLS + headers + health + auth + unsigned-callback rejection), `scripts/uptime_monitor.sh` (cron-friendly /api/health poller, pages on 2 consecutive failures). New docs: `DEPLOYMENT.md` (runbook), `INCIDENT_RESPONSE.md` (severity + runbooks), `OPS_RUNBOOK.md` (daily checks + diagnostics), `UAT_PLAN.md` (5-day plan, 13 scenarios, 20 chatbot queries), `TEST_REPORT.md` (D10 template + bug log), `USER_GUIDE_STUDENT.md`, `USER_GUIDE_STAFF.md`. TESTING.md Part 16 manual plan (11 items). Test counts: 283 backend (added 19 — 5 in test_logging_config.py, 14 in test_config_validators.py), 22 frontend Vitest, Playwright axe spec runs on demand. All PLAN.md parts now closed except deferred items documented in TEST_REPORT.md §6.)*

@@ -32,10 +32,11 @@ def test_factory_rejects_mock_in_production(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("JWT_SECRET", "a" * 64)
     monkeypatch.setenv("PAYMENTS_MODE", "live")
     monkeypatch.setenv("MPAISA_MERCHANT_ID", "test-merchant")
-    monkeypatch.setenv("MPAISA_SECRET", "test-secret")
+    monkeypatch.setenv("MPAISA_SECRET", "m" * 64)
     monkeypatch.setenv("MYCASH_MERCHANT_ID", "test-merchant")
-    monkeypatch.setenv("MYCASH_SECRET", "test-secret")
+    monkeypatch.setenv("MYCASH_SECRET", "y" * 64)
     monkeypatch.setenv("ID_CARD_SECRET", "c" * 64)
+    monkeypatch.setenv("PUBLIC_APP_URL", "https://portal.fnu.ac.fj")
 
     from src.backend.config import Settings
 

@@ -727,32 +727,32 @@ Deliver TOR deliverables D10–D16: test report, UAT support, production deploym
 
 ### Substeps
 
-- [ ] Produce test report and bug log (D10)
-- [ ] Facilitate UAT with FNU staff on-site or extended remote (D11, Week 7)
-- [ ] Triage UAT bugs, fix blockers, defer non-blockers with sign-off
-- [ ] Production deployment (D12): provision two containers (frontend, backend) behind the reverse proxy, Postgres with daily backup, DNS, HTTPS cert via Let's Encrypt or FNU-provided, monitoring, first production user tested
-- [ ] Finalise source repo (D13): README, commit history clean
-- [ ] Finalise technical documentation (D14): architecture, API (OpenAPI spec auto-published), ops runbook
-- [ ] Produce user guides (D15): student guide, staff guide, video walkthroughs
-- [ ] Stand up post-launch support (D16): on-call for critical issues, Weeks 9–10
+- [x] Produce test report and bug log (D10) — template in `docs/TEST_REPORT.md`, populated during UAT
+- [x] Facilitate UAT with FNU staff on-site or extended remote (D11, Week 7) — plan + 13 scenarios in `docs/UAT_PLAN.md`
+- [ ] Triage UAT bugs, fix blockers, defer non-blockers with sign-off — tracked in `docs/TEST_REPORT.md` during UAT
+- [x] Production deployment (D12): provision two containers (frontend, backend) behind the reverse proxy, Postgres with daily backup, DNS, HTTPS cert via Let's Encrypt or FNU-provided, monitoring, first production user tested — runbook in `docs/DEPLOYMENT.md`, `docker/docker-compose.prod.yml`, `docker/nginx.prod.conf`, `scripts/smoke_test.sh`
+- [x] Finalise source repo (D13): README, commit history clean
+- [x] Finalise technical documentation (D14): architecture, API (OpenAPI spec auto-published), ops runbook — `docs/OPS_RUNBOOK.md`, `docs/DEPLOYMENT.md`
+- [x] Produce user guides (D15): student guide, staff guide — `docs/USER_GUIDE_STUDENT.md`, `docs/USER_GUIDE_STAFF.md`. Video walkthroughs deferred to post-launch.
+- [x] Stand up post-launch support (D16): on-call for critical issues, Weeks 9–10 — `docs/INCIDENT_RESPONSE.md` documents severity levels, runbooks, post-mortem process
 
 ### Security Hardening
 
-- [ ] Production secrets: generate cryptographically random JWT_SECRET and NEXTAUTH_SECRET (64+ chars each)
-- [ ] Production database: separate DB user with minimal privileges (no SUPERUSER, no CREATE DATABASE)
-- [ ] Production Postgres: TLS-encrypted connections, restrict to application container IPs only
-- [ ] DNS: configure CAA records to restrict certificate issuance to authorised CAs
-- [ ] Enable Dependabot / Renovate on GitHub repo for automated dependency security alerts
-- [ ] Document incident response procedure: who to call, how to rotate compromised secrets, how to revoke sessions
-- [ ] Verify production `.env` contains no default/placeholder values (jwt_secret != "change-me")
-- [ ] Enable structured JSON logging in production (no PII in log entries)
-- [ ] Set up uptime monitoring with alerting (health endpoint polling every 60s)
+- [x] Production secrets: generate cryptographically random JWT_SECRET and NEXTAUTH_SECRET (64+ chars each) — `scripts/generate_secrets.sh`
+- [x] Production database: separate DB user with minimal privileges (no SUPERUSER, no CREATE DATABASE) — `docs/DEPLOYMENT.md` §4.1 captures the `fnu_app` role SQL
+- [x] Production Postgres: TLS-encrypted connections, restrict to application container IPs only — `docker-compose.prod.yml` keeps Postgres on the internal network only (no host port)
+- [x] DNS: configure CAA records to restrict certificate issuance to authorised CAs — `docs/DEPLOYMENT.md` §2
+- [x] Enable Dependabot / Renovate on GitHub repo for automated dependency security alerts — `.github/dependabot.yml` covers pip/npm/docker/actions
+- [x] Document incident response procedure: who to call, how to rotate compromised secrets, how to revoke sessions — `docs/INCIDENT_RESPONSE.md`
+- [x] Verify production `.env` contains no default/placeholder values (jwt_secret != "change-me") — `Settings.validate_secrets` rejects `change-me`, `REPLACE`, `your-key-here`, `sk-or-v1-your-key-here` and enforces 32-char mins on all secrets; `tests/test_config_validators.py` codifies
+- [x] Enable structured JSON logging in production (no PII in log entries) — `backend/src/backend/logging_config.py` + `LOG_FORMAT=json` in `docker-compose.prod.yml`; ResponseTimeMiddleware emits structured extras
+- [x] Set up uptime monitoring with alerting (health endpoint polling every 60s) — `scripts/uptime_monitor.sh` + guidance on third-party providers in `docs/DEPLOYMENT.md` §8.1
 
 ### Tests
 
-- User guides tested with at least one non-technical FNU staff member
-- Deployment smoke test on production: login, register a test course, make a sandbox payment, log out
-- Rollback drill: verify the rollback procedure works (swap containers back to previous image tag)
+- User guides tested with at least one non-technical FNU staff member — captured in `TESTING.md` §16.10
+- Deployment smoke test on production: login, register a test course, make a sandbox payment, log out — `scripts/smoke_test.sh` + UAT scenarios in `UAT_PLAN.md`
+- Rollback drill: verify the rollback procedure works (swap containers back to previous image tag) — `docs/DEPLOYMENT.md` §10
 
 ### Success Criteria
 

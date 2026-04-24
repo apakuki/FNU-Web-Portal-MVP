@@ -1,6 +1,26 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
+# Placeholder markers from .env.example and .env.production.example. A value
+# matching any of these in production means someone copied the template but
+# never filled in a real secret — reject at startup rather than silently ship
+# with a guessable value.
+_PLACEHOLDER_MARKERS = (
+    "change-me",
+    "id-card-change-me",
+    "REPLACE",
+    "replace-me",
+    "your-key-here",
+    "sk-or-v1-your-key-here",
+)
+
+
+def _is_placeholder(value: str) -> bool:
+    if not value:
+        return True
+    lowered = value.lower()
+    return any(marker.lower() in lowered for marker in _PLACEHOLDER_MARKERS)
+
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://fnu:fnu_dev_password@localhost:5432/fnu_portal"
@@ -64,29 +84,61 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_secrets(self) -> "Settings":
-        if self.environment == "production":
-            if self.jwt_secret in ("change-me", ""):
-                raise ValueError("JWT_SECRET must be set to a secure random value in production")
-            if len(self.jwt_secret) < 32:
-                raise ValueError("JWT_SECRET must be at least 32 characters in production")
-            if self.payments_mode == "stub":
-                raise ValueError("PAYMENTS_MODE=stub is not allowed in production")
-            if self.payments_mode == "live":
-                if not self.mpaisa_merchant_id or not self.mpaisa_secret:
-                    raise ValueError("MPAISA_MERCHANT_ID and MPAISA_SECRET required in live mode")
-                if not self.mycash_merchant_id or not self.mycash_secret:
-                    raise ValueError("MYCASH_MERCHANT_ID and MYCASH_SECRET required in live mode")
-            if self.chatbot_mode == "live" and not self.openrouter_api_key:
-                raise ValueError("OPENROUTER_API_KEY required when CHATBOT_MODE=live")
-            if self.id_card_secret in ("", "id-card-change-me"):
-                raise ValueError("ID_CARD_SECRET must be set to a secure random value in production")
-            if len(self.id_card_secret) < 32:
-                raise ValueError("ID_CARD_SECRET must be at least 32 characters in production")
-            if self.notifications_mode == "live":
-                if not self.smtp_user or not self.smtp_pass:
-                    raise ValueError(
-                        "SMTP_USER and SMTP_PASS required when NOTIFICATIONS_MODE=live"
-                    )
+        if self.environment != "production":
+            return self
+
+        if _is_placeholder(self.jwt_secret):
+            raise ValueError("JWT_SECRET must be set to a secure random value in production")
+        if len(self.jwt_secret) < 32:
+            raise ValueError("JWT_SECRET must be at least 32 characters in production")
+
+        if _is_placeholder(self.id_card_secret):
+            raise ValueError("ID_CARD_SECRET must be set to a secure random value in production")
+        if len(self.id_card_secret) < 32:
+            raise ValueError("ID_CARD_SECRET must be at least 32 characters in production")
+
+        if self.payments_mode == "stub":
+            raise ValueError("PAYMENTS_MODE=stub is not allowed in production")
+        if self.payments_mode == "live":
+            for label, value in (
+                ("MPAISA_MERCHANT_ID", self.mpaisa_merchant_id),
+                ("MPAISA_SECRET", self.mpaisa_secret),
+                ("MYCASH_MERCHANT_ID", self.mycash_merchant_id),
+                ("MYCASH_SECRET", self.mycash_secret),
+            ):
+                if _is_placeholder(value):
+                    raise ValueError(f"{label} must be set to a real credential in production")
+            if len(self.mpaisa_secret) < 32 or len(self.mycash_secret) < 32:
+                raise ValueError(
+                    "MPAISA_SECRET and MYCASH_SECRET must be at least 32 characters in production"
+                )
+
+        if self.banner_mode == "live":
+            if _is_placeholder(self.banner_api_key):
+                raise ValueError("BANNER_API_KEY required when BANNER_MODE=live in production")
+            if not self.banner_api_url.startswith("https://"):
+                raise ValueError("BANNER_API_URL must use https:// in production")
+
+        if self.chatbot_mode == "live" and _is_placeholder(self.openrouter_api_key):
+            raise ValueError("OPENROUTER_API_KEY required when CHATBOT_MODE=live in production")
+
+        if self.notifications_mode == "live":
+            if _is_placeholder(self.smtp_user) or _is_placeholder(self.smtp_pass):
+                raise ValueError(
+                    "SMTP_USER and SMTP_PASS required when NOTIFICATIONS_MODE=live"
+                )
+            if self.sms_provider not in ("stub", "vodafone"):
+                raise ValueError(f"Unknown SMS_PROVIDER={self.sms_provider}")
+            if self.sms_provider == "vodafone" and (
+                _is_placeholder(self.sms_api_url) or _is_placeholder(self.sms_api_key)
+            ):
+                raise ValueError(
+                    "SMS_API_URL and SMS_API_KEY required when SMS_PROVIDER=vodafone"
+                )
+
+        if not self.public_app_url.startswith("https://"):
+            raise ValueError("PUBLIC_APP_URL must use https:// in production")
+
         return self
 
 

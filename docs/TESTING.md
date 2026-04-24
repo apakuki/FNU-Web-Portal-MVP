@@ -1801,3 +1801,178 @@ cd frontend && npx next build
 Part 15 adds ~16 backend tests (`test_security.py` + `test_banner_audit.py`).
 Frontend adds the Playwright axe spec (run on demand, not in the default
 `vitest` suite). No existing tests should regress.
+
+## Part 16: UAT, Deployment, Documentation
+
+Part 16 is the final-mile pass: UAT with FNU staff, production deployment,
+user guides, post-launch support. Most of this is exercised *during* UAT
+against the staging environment — see [UAT_PLAN.md](UAT_PLAN.md) for the
+facilitated 5-day plan. The automated artefacts below are what ship in this
+repo and must pass before UAT begins.
+
+### Prerequisites
+
+- Stack up via `./scripts/start.sh`
+- Backend venv at `backend/.venv`
+- `openssl` on PATH
+- For production validator tests, no `.env` in project root (they use explicit
+  overrides); run from `backend/` with `KPI_SCHEDULER_ENABLED=false`
+
+### 16.1 Production config validator — reject placeholder secrets
+
+```bash
+cd backend
+KPI_SCHEDULER_ENABLED=false .venv/bin/python -m pytest \
+  tests/test_config_validators.py -v
+```
+
+Expected: 14 tests green. Covers: placeholder markers (`change-me`,
+`REPLACE`, `your-key-here`), JWT/ID-card min length, live-mode payment
+credential length, Banner live URL must be https, OpenRouter key required
+when chatbot live, SMTP/SMS credentials, `PUBLIC_APP_URL` must be https.
+
+### 16.2 Structured JSON logging
+
+```bash
+cd backend
+LOG_FORMAT=json KPI_SCHEDULER_ENABLED=false .venv/bin/python -c "
+from src.backend.logging_config import configure_logging
+import logging
+configure_logging()
+logging.getLogger('fnu.test').info('hello', extra={
+  'method':'GET','path':'/foo','status':200,'response_ms':12.3
+})
+"
+```
+
+Expected: one JSON line printed with `timestamp`, `level`, `logger`,
+`message`, plus the structured extras (`method`, `path`, `status`,
+`response_ms`).
+
+Full request-line format in a live container:
+
+```bash
+docker logs docker-backend-1 2>&1 | grep -E '^\{' | head -3
+```
+
+Expected: JSON-per-line with request method / path / status / response_ms
+fields under production compose.
+
+### 16.3 Generate production secrets
+
+```bash
+./scripts/generate_secrets.sh
+```
+
+Expected: five `KEY=value` lines with 64-char hex values (JWT_SECRET,
+NEXTAUTH_SECRET, ID_CARD_SECRET, POSTGRES_PASSWORD, FNU_APP_DB_PASSWORD).
+Safe to re-run any time; every invocation yields fresh secrets.
+
+### 16.4 Production compose config renders
+
+```bash
+cp .env.production.example .env.production
+./scripts/generate_secrets.sh >> .env.production.generated
+# Manually copy the generated values into .env.production, then:
+cd docker
+docker compose -f docker-compose.prod.yml config >/dev/null && echo OK
+```
+
+Expected: `OK` (no stderr). Exercises `${...:?err}` required-variable checks.
+Clean up `.env.production*` afterwards.
+
+### 16.5 Production smoke test
+
+Against a running local stack (dev `docker-compose.yml`) the smoke test
+passes most checks but fails the production-only gates (Swagger should be
+404 but is enabled in dev). For a pass run against a `ENVIRONMENT=production`
+deployment:
+
+```bash
+PORTAL_URL=https://staging.portal.fnu.ac.fj ./scripts/smoke_test.sh
+```
+
+Expected: all checks pass with green ticks. Exits 0 on success, 1 if any
+check fails. Cover: TLS, security headers, CSP on /embed/*, /api/health
+subsystems, Swagger disabled, auth 401s, unsigned payment callback rejected,
+landing SSR content.
+
+### 16.6 Uptime monitor self-test
+
+```bash
+PORTAL_URL=https://staging.portal.fnu.ac.fj STATE_DIR=/tmp/fnu-uptime \
+  ./scripts/uptime_monitor.sh && echo OK
+rm -rf /tmp/fnu-uptime
+```
+
+Expected: `OK` when staging is healthy. Point it at an unreachable host to
+confirm the failure path emits to stderr.
+
+### 16.7 Deployment runbook dry-run
+
+Walk through every numbered step of [DEPLOYMENT.md](DEPLOYMENT.md) §1–§6 on
+the staging VM without running destructive commands. Confirm:
+
+- DNS / CAA records resolve.
+- `scripts/generate_secrets.sh` produces 64-char values.
+- The unprivileged `fnu_app` role SQL in §4.1 runs cleanly against a disposable
+  Postgres.
+- `docker compose -f docker-compose.prod.yml config` parses (§16.4 above).
+- Bootstrap admin creation snippet runs against the staging DB.
+- Smoke test exits 0 against staging (§16.5 above).
+
+Tick each step off in [TEST_REPORT.md](TEST_REPORT.md) before proceeding to
+production cutover.
+
+### 16.8 Incident-response tabletop
+
+Schedule a 45-minute exercise with the UAT team. Pick one scenario from
+[INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md):
+
+- Credential compromise (JWT secret leaked)
+- Portal unreachable (backend container OOM)
+- Payment callback fraud (suspect M-PAiSA activity)
+
+Facilitator narrates the alerts; team follows the runbook. Capture gaps in
+the runbook and improve before go-live.
+
+### 16.9 Backup restore drill
+
+Reuses the Part 15 restore drill (see §15.6). For Part 16 sign-off, prove
+the restored DB boots the application:
+
+```bash
+# After restoring the backup into fnu_portal_restore_test per §15.6, spin up
+# a one-shot backend container pointing at the restored DB and hit /api/health
+DATABASE_URL=postgresql+asyncpg://fnu:fnu_dev_password@localhost:5432/fnu_portal_restore_test \
+  docker compose -f docker-compose.prod.yml run --rm -p 18000:8000 backend \
+  uvicorn src.backend.main:app --host 0.0.0.0 --port 8000 &
+sleep 5
+curl -sf http://localhost:18000/api/health | grep -q '"status":"ok"' && echo OK
+```
+
+Expected: `OK`. Kills the container after.
+
+### 16.10 User-guide validation
+
+Ask one non-technical FNU staff member to complete each of:
+
+- Full student journey from [USER_GUIDE_STUDENT.md](USER_GUIDE_STUDENT.md)
+  §1–§7 using only the guide (no coaching).
+- Staff admin workflow from [USER_GUIDE_STAFF.md](USER_GUIDE_STAFF.md) §3–§6
+  and §9.
+
+Record friction points and edit the guide accordingly before go-live.
+
+### 16.11 Full regression (sanity, all parts)
+
+```bash
+cd backend && KPI_SCHEDULER_ENABLED=false .venv/bin/python -m pytest tests/ -q
+cd frontend && npx vitest run
+cd frontend && npx tsc --noEmit
+cd frontend && npx next build
+```
+
+Expected: all green. Part 16 adds **19 backend tests** (5 in
+`test_logging_config.py`, 14 in `test_config_validators.py`); no existing
+test should regress.

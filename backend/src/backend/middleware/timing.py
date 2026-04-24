@@ -1,9 +1,9 @@
 """Response-time logging middleware.
 
-Logs one structured line per request so p50/p95/p99 can be computed by grepping
-`response_ms=` from the backend log stream (or piping it into any log
-aggregator). Adds `X-Response-Time-ms` on every response for on-demand
-client-side inspection.
+Logs one record per request with structured extras (`method`, `path`, `status`,
+`response_ms`) so p50/p95/p99 can be computed from JSON logs in production or
+grepped from text logs in dev. Adds `X-Response-Time-ms` on every response for
+on-demand client-side inspection.
 """
 
 import logging
@@ -28,5 +28,11 @@ class ResponseTimeMiddleware(BaseHTTPMiddleware):
             request.url.path,
             response.status_code,
             elapsed_ms,
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "response_ms": round(elapsed_ms, 1),
+            },
         )
         return response
