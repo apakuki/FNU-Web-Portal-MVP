@@ -5,6 +5,7 @@ In production, BANNER_MODE must be "live" — the mock adapter is never used.
 
 import logging
 
+from src.backend.banner.audited_client import AuditedBannerClient
 from src.backend.banner.base import BannerClient
 from src.backend.banner.cached_client import CachedBannerClient
 from src.backend.config import settings
@@ -49,7 +50,8 @@ def get_banner_client() -> BannerClient:
         inner = MockBannerClient()
         logger.info("Banner client: mock")
 
-    _instance = CachedBannerClient(inner, ttl_seconds=settings.banner_cache_ttl_seconds)
+    cached = CachedBannerClient(inner, ttl_seconds=settings.banner_cache_ttl_seconds)
+    _instance = AuditedBannerClient(cached)
     return _instance
 
 

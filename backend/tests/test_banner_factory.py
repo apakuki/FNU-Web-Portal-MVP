@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.backend.banner.cached_client import CachedBannerClient
+from src.backend.banner.audited_client import AuditedBannerClient
 from src.backend.banner.factory import get_banner_client, reset_banner_client
 
 
@@ -23,7 +23,7 @@ def test_factory_returns_cached_mock(monkeypatch: pytest.MonkeyPatch) -> None:
     reset_banner_client()
 
     client = get_banner_client()
-    assert isinstance(client, CachedBannerClient)
+    assert isinstance(client, AuditedBannerClient)
 
 
 def test_factory_rejects_mock_in_production(monkeypatch: pytest.MonkeyPatch) -> None:

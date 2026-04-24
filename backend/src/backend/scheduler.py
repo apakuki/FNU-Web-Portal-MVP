@@ -60,3 +60,12 @@ def shutdown_scheduler() -> None:
         _scheduler.shutdown(wait=False)
         _scheduler = None
         logger.info("KPI scheduler stopped")
+
+
+def scheduler_status() -> str:
+    """Report scheduler lifecycle state for /api/health."""
+    if not settings.kpi_scheduler_enabled:
+        return "disabled"
+    if _scheduler is None:
+        return "stopped"
+    return "running" if _scheduler.running else "stopped"

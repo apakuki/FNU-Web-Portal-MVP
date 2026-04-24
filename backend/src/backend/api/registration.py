@@ -4,13 +4,14 @@ All student-facing endpoints are scoped to the authenticated user's banner_id.
 """
 
 from datetime import date, timedelta
+from html import escape as _html_escape
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from src.backend.auth import require_role
-from src.backend.banner import get_banner_client
+from src.backend.banner import get_banner_client, set_banner_actor
 from src.backend.banner.types import CompletedCourse, FeeItem, Offering
 from src.backend.db.models import User
 from src.backend.rate_limit import limiter
@@ -357,6 +358,7 @@ async def confirm_registration(
     user: User = Depends(require_role("student")),
 ):
     banner_id = _require_banner_id(user)
+    set_banner_actor(user.id)
     banner = get_banner_client()
     student = await banner.get_student(banner_id)
     if not student or not student.programme_code:
@@ -743,12 +745,12 @@ async def get_courses(
 
 def _invoice_html(inv: InvoiceOut) -> str:
     rows = "".join(
-        f"<tr><td>{item.code}</td><td>{item.description}</td>"
+        f"<tr><td>{_html_escape(item.code)}</td><td>{_html_escape(item.description)}</td>"
         f"<td style='text-align:right'>FJ${item.amount_cents / 100:.2f}</td></tr>"
         for item in inv.items
     )
-    status_label = inv.status.replace("_", " ").title()
-    due = inv.due_date or "—"
+    status_label = _html_escape(inv.status.replace("_", " ").title())
+    due = _html_escape(inv.due_date) if inv.due_date else "&mdash;"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -767,10 +769,10 @@ def _invoice_html(inv: InvoiceOut) -> str:
 </head>
 <body>
 <h1>Fiji National University</h1>
-<p class="sub">Student Services Portal — Tax Invoice</p>
+<p class="sub">Student Services Portal &mdash; Tax Invoice</p>
 <hr>
-<p><strong>Invoice ID:</strong> {inv.invoice_id}</p>
-<p><strong>Semester:</strong> {inv.semester} {inv.year}</p>
+<p><strong>Invoice ID:</strong> {_html_escape(inv.invoice_id)}</p>
+<p><strong>Semester:</strong> {_html_escape(inv.semester)} {inv.year}</p>
 <p><strong>Due Date:</strong> {due}</p>
 <p><strong>Status:</strong> <span class="status">{status_label}</span></p>
 <table>

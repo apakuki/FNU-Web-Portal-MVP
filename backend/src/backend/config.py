@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     banner_api_key: str = ""
     banner_timeout_seconds: float = 10.0
     banner_cache_ttl_seconds: int = 900
+    banner_rate_limit_per_sec: float = 20.0
     openrouter_api_key: str = ""
     openrouter_model: str = "anthropic/claude-sonnet-4"
     openrouter_api_url: str = "https://openrouter.ai/api/v1/chat/completions"

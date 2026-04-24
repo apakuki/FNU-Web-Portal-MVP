@@ -23,6 +23,7 @@ from src.backend.api.payments import router as payments_router
 from src.backend.api.profile import router as profile_router
 from src.backend.api.registration import router as registration_router
 from src.backend.config import settings
+from src.backend.middleware import ResponseTimeMiddleware
 from src.backend.rate_limit import limiter
 from src.backend.scheduler import shutdown_scheduler, start_scheduler
 
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
         allow_headers=["Authorization", "Content-Type"],
     )
+    app.add_middleware(ResponseTimeMiddleware)
 
     if is_prod:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["portal.fnu.ac.fj", "localhost"])

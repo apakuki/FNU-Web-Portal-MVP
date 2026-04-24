@@ -14,21 +14,27 @@ FNU Web Portal MVP/
 │   └── docker-compose.yml        # 4 services: postgres, backend, frontend, proxy
 ├── scripts/
 │   ├── start.sh                  # docker compose up --build -d
-│   └── stop.sh                   # docker compose down
+│   ├── stop.sh                   # docker compose down
+│   ├── backup.sh                 # Part 15 — pg_dump + retention prune; cron-friendly
+│   ├── zap_baseline.sh           # Part 15 — OWASP ZAP baseline scan (Docker)
+│   ├── loadtest.sh               # Part 15 — Locust wrapper with configurable p95 threshold
+│   └── locustfile.py             # Part 15 — anon + student-auth scenarios
 ├── docs/
 │   ├── PLAN.md                   # 16-part build checklist
 │   ├── ARCHITECTURE.md           # Component diagram, data flow, auth model
 │   ├── API.md                    # Endpoint contracts (request/response shapes)
 │   ├── BANNER_SURFACE.md         # Banner entity field reference and cache status
 │   ├── TESTING.md                # Manual test plans per part
-│   └── TROUBLESHOOTING.md        # Diagnosis flowcharts per part
+│   ├── TROUBLESHOOTING.md        # Diagnosis flowcharts per part
+│   └── SECURITY.md               # Part 15 — security reference (headers, rate limits, audit, deferred items, IR)
 ├── backend/
 │   ├── pyproject.toml            # uv project; ruff, mypy config
 │   ├── src/backend/
-│   │   ├── main.py               # FastAPI app factory; registers all routers
+│   │   ├── main.py               # FastAPI app factory; registers all routers; ResponseTimeMiddleware wired here (Part 15)
 │   │   ├── auth.py               # JWT helpers + FastAPI dependencies
 │   │   ├── config.py             # Pydantic Settings (reads .env)
 │   │   ├── rate_limit.py         # slowapi Limiter singleton
+│   │   ├── middleware/           # Part 15 — ResponseTimeMiddleware (timing.py) logs response_ms + X-Response-Time-ms header
 │   │   ├── seed.py               # Idempotent dev-data seed (8 users)
 │   │   ├── api/
 │   │   │   ├── health.py         # GET /api/health
@@ -66,9 +72,11 @@ FNU Web Portal MVP/
 │   │   │   ├── mock_adapter.py   # In-memory mock with FNU seed data
 │   │   │   ├── live_adapter.py   # HTTPS client with circuit breaker
 │   │   │   ├── cached_client.py  # TTL-caching decorator wrapper
+│   │   │   ├── audited_client.py # Part 15 — wraps factory; rate-limits every call + audit-logs every write
+│   │   │   ├── rate_limit.py     # Part 15 — in-process token bucket (BANNER_RATE_LIMIT_PER_SEC)
 │   │   │   ├── cache.py          # TTLCache (monotonic-clock, thread-safe)
 │   │   │   ├── factory.py        # Singleton factory; blocks mock in production
-│   │   │   └── __init__.py       # Exports: BannerClient, get_banner_client, reset_banner_client
+│   │   │   └── __init__.py       # Exports: BannerClient, get_banner_client, reset_banner_client, set_banner_actor
 │   │   ├── db/
 │   │   │   ├── base.py           # SQLAlchemy DeclarativeBase
 │   │   │   ├── models.py         # All ORM models (see DB Models section below)
@@ -100,10 +108,13 @@ FNU Web Portal MVP/
 │       ├── test_admin_students.py   # Part 12 — search, overrides, schemas
 │       ├── test_admin_enquiries.py  # Part 12 — enquiry workflow, feedback
 │       ├── test_lecturer.py         # Part 13 — rosters, grade workflow, exports
-│       └── test_kpi.py              # Part 14 — traffic light, periods, RBAC, dashboards
+│       ├── test_kpi.py              # Part 14 — traffic light, periods, RBAC, dashboards
+│       ├── test_security.py         # Part 15 — response-time header, auth-bypass, unsigned callbacks
+│       └── test_banner_audit.py     # Part 15 — AuditedBannerClient + token-bucket rate limiter
 └── frontend/
-    ├── package.json              # Next.js 15, next-auth, zod, vitest, @testing-library
-    ├── tsconfig.json             # paths: { "@/*": ["./*"] }
+    ├── package.json              # Next.js 15, next-auth, zod, vitest, @testing-library; Part 15 adds @axe-core/playwright
+    ├── playwright.config.ts      # Part 15 — 5 projects (chromium, firefox, webkit, mobile-chrome, mobile-safari)
+    ├── tsconfig.json             # paths: { "@/*": ["./*"] }; excludes tests/e2e so TS doesn't require Playwright deps
     ├── vitest.config.ts          # jsdom environment; "@" alias
     ├── vitest.setup.ts           # @testing-library/jest-dom matchers
     ├── middleware.ts             # Auth guard + security headers on every response
@@ -122,6 +133,9 @@ FNU Web Portal MVP/
     │   └── embed/chatbot.js      # Static bootstrapper; injects iframe -> /embed/chatbot
     └── app/
         ├── layout.tsx            # Root layout (fonts, metadata, SessionProvider)
+        ├── error.tsx             # Part 15 — per-segment runtime error boundary
+        ├── global-error.tsx      # Part 15 — root-level error boundary (renders its own <html>)
+        ├── not-found.tsx         # Part 15 — 404 page
         ├── globals.css           # Tailwind @theme tokens; .input-field component
         ├── page.tsx              # Public landing page (Server Component)
         ├── health-status.tsx     # Server Component: fetches /api/health via SSR
@@ -383,6 +397,7 @@ FNU Web Portal MVP/
 | `BANNER_API_KEY` | `` | Yes when live | Banner Bearer token |
 | `BANNER_TIMEOUT_SECONDS` | `10.0` | No | Per-request timeout to Banner |
 | `BANNER_CACHE_TTL_SECONDS` | `900` | No | TTL for programmes/courses/fees cache |
+| `BANNER_RATE_LIMIT_PER_SEC` | `20.0` | No | Part 15 — outbound Banner call rate cap (token bucket) |
 | `OPENROUTER_API_KEY` | `` | When chatbot live | AI chatbot LLM access |
 | `CORS_ORIGINS` | `["http://localhost:3000","http://localhost"]` | Yes | Allowed CORS origins |
 | `PAYMENTS_MODE` | `stub` | Yes (`live`) | `stub` for dev/CI; `live` required in production. Production validator rejects `stub`. |
@@ -498,4 +513,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 14 complete (KPI Dashboard: `services/kpi_service.py` exposes `run_all` — computes 12 auto KPIs across enrolment, applications, payments (incl. Banner outstanding receivables), enquiries, chatbot, grading — plus `traffic_light` (green/amber/red/grey based on target + direction) and `record_manual_value` for section-head entries. `api/kpi.py` serves definition + target CRUD, value listing, history, manual input, admin-triggered recompute, and five role-scoped dashboards (vc/dean/section-head/finance/me) with period presets (current semester / YTD / custom, 366-day cap). `scheduler.py` hooks APScheduler into FastAPI's lifespan and runs `run_all` every `KPI_COMPUTE_INTERVAL_MINUTES`. Alembic migration `e5f6a7b8c9d0` adds `direction`, `description`, `source` to `kpi_definitions` plus index on `(kpi_code, period_start, period_end)`. Seed: `backend/seed/kpi_definitions.json` (14 KPIs: 12 auto + 2 manual). Frontend: `components/kpi-dashboard.tsx` shared Client Component, pages under `(admin)/admin/kpi/` (hub + vc/dean/section-head/finance/me/targets). Part 15 — Non-functional hardening — is next.)*
+*Last updated: Part 15 complete (Non-functional hardening: `middleware/timing.py` logs `response_ms=` + sets `X-Response-Time-ms` on every response. `banner/audited_client.py` wraps the factory with `AuditedBannerClient` — rate-limits every call through a token bucket (`banner/rate_limit.py`, `BANNER_RATE_LIMIT_PER_SEC`) and writes `banner.register_course | banner.submit_grade | banner.create_invoice | banner.create_student` audit rows with actor from a ContextVar (`set_banner_actor`). Alembic `f6a7b8c9d0e1` adds 12 indexes across audit_log, notifications, enquiries, payment_attempts, applications, lecturer_grades, sessions. `/api/health` now reports scheduler + version + environment. Invoice PDF values escaped via `html.escape`. Frontend adds `error.tsx`, `global-error.tsx`, `not-found.tsx`. `playwright.config.ts` defines 5 browser projects; `tests/e2e/axe.spec.ts` is the axe-core + security-headers smoke. Scripts: `backup.sh` (pg_dump with retention), `zap_baseline.sh` (OWASP ZAP Docker), `loadtest.sh` + `locustfile.py` (configurable p95 threshold). New docs: `docs/SECURITY.md`. Test counts: 264 backend (added 14 in test_security.py + test_banner_audit.py), 22 frontend Vitest, Playwright axe spec runs on demand. Part 16 — UAT + deployment — is next.)*

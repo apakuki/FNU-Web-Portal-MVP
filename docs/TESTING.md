@@ -1626,3 +1626,178 @@ cd frontend && npx next build
 ```
 
 Part 14 adds 20 backend tests (traffic-light logic, period helpers, schema validation, RBAC across all five dashboards plus target + manual endpoints, custom-period guards, VC happy-path). Full backend suite now passes 250 tests; frontend remains at 22.
+
+---
+
+## Part 15: Non-Functional Hardening
+
+Part 15 is a cross-cutting hardening pass: response-time logging, audit-log
+coverage on Banner writes, DB indexes, error boundaries, cross-browser + axe-core
+smoke tests, backup/restore drill, OWASP ZAP scan, and Locust load test.
+
+### Prerequisites
+
+- Stack up via `./scripts/start.sh`
+- Backend venv at `backend/.venv`
+- Docker running (needed for ZAP)
+- `pip install locust` (for the load test)
+
+### 15.1 Response-time middleware
+
+```bash
+curl -i http://localhost/api/health 2>&1 | grep -i 'x-response-time-ms'
+# Expected: X-Response-Time-ms: <some number>
+
+docker logs docker-backend-1 2>&1 | tail -5
+# Expected: one 'request method=GET path=/api/health status=200 response_ms=...'
+# line per request
+```
+
+### 15.2 Banner writes are audit-logged
+
+```bash
+# Log in as a student
+TOKEN=$(curl -s -X POST http://localhost/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"student@fnu.ac.fj","password":"student123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Confirm registration (triggers register_course + create_invoice on Banner)
+curl -s -X POST http://localhost/api/registration/confirm \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"offering_ids":["ACC101-2026-S1"],"semester":"S1","year":2026}'
+
+# Verify audit rows were written
+docker exec docker-postgres-1 psql -U fnu -d fnu_portal -c \
+  "SELECT action, target_type, target_id FROM audit_log \
+   WHERE action LIKE 'banner.%' ORDER BY occurred_at DESC LIMIT 5;"
+# Expected: banner.register_course + banner.create_invoice rows with
+# target_id containing the banner student id
+```
+
+### 15.3 DB indexes present
+
+```bash
+docker exec docker-postgres-1 psql -U fnu -d fnu_portal -c \
+  "\d+ audit_log" | grep ix_audit_log
+# Expected: ix_audit_log_actor_occurred, ix_audit_log_target
+
+docker exec docker-postgres-1 psql -U fnu -d fnu_portal -c \
+  "\di ix_*" | wc -l
+# Expected: >= 12 indexes from the Part 15 migration
+```
+
+### 15.4 Frontend error boundaries
+
+1. Start the stack.
+2. In the browser dev-tools, introduce a runtime error in a portal route (e.g. temporarily add `throw new Error('boom')` to `dashboard/page.tsx`).
+3. Reload `/dashboard`.
+4. Expected: "Something went wrong" page with a Try again button — **not** a Next.js default error page.
+5. Revert the change.
+
+### 15.5 `/api/health` expanded
+
+```bash
+curl -s http://localhost/api/health | python3 -m json.tool
+```
+
+Expected fields: `status`, `postgres`, `banner`, `scheduler`, `version`,
+`environment`. `scheduler` is one of `running` | `stopped` | `disabled`.
+
+### 15.6 Backup + restore drill
+
+```bash
+# Manual backup
+./scripts/backup.sh
+ls -l backups/ | tail -3
+# Expected: a fnu_portal_<timestamp>.sql.gz file, size > 10 KB
+
+# Restore into a disposable DB
+docker exec docker-postgres-1 createdb -U fnu fnu_portal_restore_test
+gunzip -c backups/fnu_portal_*.sql.gz \
+  | docker exec -i docker-postgres-1 psql -U fnu -d fnu_portal_restore_test
+docker exec docker-postgres-1 psql -U fnu -d fnu_portal_restore_test -c \
+  "SELECT count(*) FROM users;"
+# Expected: same user count as production DB
+
+# Cleanup
+docker exec docker-postgres-1 dropdb -U fnu fnu_portal_restore_test
+```
+
+### 15.7 OWASP ZAP baseline scan
+
+```bash
+./scripts/zap_baseline.sh
+# Runs OWASP ZAP against http://localhost in Docker
+# Report: reports/zap-baseline-<timestamp>.html
+open reports/zap-baseline-*.html
+```
+
+Expected: zero high-severity findings. Medium/low findings are reviewed and
+documented in `docs/SECURITY.md` if accepted.
+
+### 15.8 Locust load test (dev profile)
+
+```bash
+./scripts/loadtest.sh
+# Default: 100 users, 2 minute run, p95 must stay under 5 s
+```
+
+For PLAN.md sign-off against staging:
+
+```bash
+USERS=500 P95_MS=3000 RUN_TIME=5m HOST=https://staging.fnu \
+  ./scripts/loadtest.sh
+```
+
+Expected: PASS — `p95 < P95_MS`. The CSVs under `reports/locust-*` contain
+per-endpoint latencies for post-mortem.
+
+### 15.9 Cross-browser + axe-core smoke
+
+```bash
+cd frontend
+npm install                 # picks up @axe-core/playwright
+npm run e2e:install         # one-time browser download (~500 MB)
+npm run a11y                # runs tests/e2e/axe.spec.ts across all 5 projects
+```
+
+Expected: green across chromium, firefox, webkit, mobile-chrome, mobile-safari.
+Any critical/serious axe violation fails the test and prints the offending
+elements.
+
+### 15.10 Security headers verification
+
+```bash
+curl -s -I http://localhost/ | grep -iE \
+  'x-frame-options|x-content-type-options|strict-transport|referrer-policy|permissions-policy'
+```
+
+Expected: all 5 headers present. On `/embed/chatbot`, `X-Frame-Options` is
+absent and `Content-Security-Policy: frame-ancestors` is present.
+
+### 15.11 Auth-bypass tests (automated)
+
+```bash
+cd backend
+KPI_SCHEDULER_ENABLED=false .venv/bin/python -m pytest \
+  tests/test_security.py tests/test_banner_audit.py -v
+```
+
+Expected: all tests green. Verifies response-time header, IDOR guards on every
+student/admin route, unsigned payment callbacks rejected, offer/verify-QR 404
+on bogus tokens, Banner writes produce audit rows, token bucket throttles.
+
+### 15.12 Full suites (sanity)
+
+```bash
+cd backend && KPI_SCHEDULER_ENABLED=false .venv/bin/python -m pytest tests/ -q
+cd frontend && npx vitest run
+cd frontend && npx tsc --noEmit
+cd frontend && npx next build
+```
+
+Part 15 adds ~16 backend tests (`test_security.py` + `test_banner_audit.py`).
+Frontend adds the Playwright axe spec (run on demand, not in the default
+`vitest` suite). No existing tests should regress.

@@ -1091,23 +1091,34 @@ Symptom: Pages load slowly (>3s) in production
 
 ### 13.3 Database backup and restore
 
+**Automated backup (Part 15)** — `scripts/backup.sh` wraps `pg_dump` into a
+gzipped timestamped file and prunes older than `RETENTION_DAYS`.
+
 ```
-Symptom: Need to restore from backup
-│
-├─ Create manual backup:
-│  └─ docker exec docker-postgres-1 pg_dump -U fnu fnu_portal > backup_$(date +%Y%m%d).sql
-│
-├─ Restore from backup:
-│  └─ docker exec -i docker-postgres-1 psql -U fnu -d fnu_portal < backup_file.sql
-│
-├─ Automated daily backups:
-│  └─ Configured via cron job (Part 15)
-│  └─ Check: crontab -l for backup schedule
-│
-└─ Test restore procedure:
-   └─ Restore into a fresh database, verify data integrity
-   └─ Run: alembic current to verify schema version matches
+# Manual run
+./scripts/backup.sh
+
+# Cron (2am daily)
+0 2 * * * /path/to/scripts/backup.sh >> /var/log/fnu-backup.log 2>&1
+
+# Restore from a backup file
+gunzip -c backups/fnu_portal_20260424T020000Z.sql.gz \
+  | psql -U fnu -d fnu_portal
+
+# Restore into a fresh DB (drill)
+createdb -U fnu fnu_portal_restore_test
+gunzip -c backups/fnu_portal_latest.sql.gz \
+  | psql -U fnu -d fnu_portal_restore_test
+DATABASE_URL=postgresql+asyncpg://fnu:fnu_dev_password@localhost:5432/fnu_portal_restore_test \
+  uv run alembic current      # verify schema version
 ```
+
+**Restore drill cadence**: run a restore into a disposable DB monthly and verify
+`alembic current` matches production. Log the result.
+
+**Backup location**: `./backups/` relative to repo root in dev. In production,
+mount a persistent volume or ship to an off-site bucket. Never commit
+`backups/` — it's in `.gitignore`.
 
 ### 13.4 Production rollback
 

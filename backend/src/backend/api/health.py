@@ -3,7 +3,9 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from src.backend.banner import get_banner_client
+from src.backend.config import settings
 from src.backend.db.session import async_session_factory
+from src.backend.scheduler import scheduler_status
 
 router = APIRouter(tags=["health"])
 
@@ -12,6 +14,9 @@ class HealthResponse(BaseModel):
     status: str
     postgres: str
     banner: str
+    scheduler: str
+    version: str = "0.1.0"
+    environment: str
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -30,6 +35,18 @@ async def health_check() -> HealthResponse:
     except Exception:
         banner_status = "unavailable"
 
-    overall = "ok" if pg_status == "ok" and banner_status in ("ok", "mock") else "degraded"
+    sched = scheduler_status()
 
-    return HealthResponse(status=overall, postgres=pg_status, banner=banner_status)
+    overall = (
+        "ok"
+        if pg_status == "ok" and banner_status in ("ok", "mock") and sched != "error"
+        else "degraded"
+    )
+
+    return HealthResponse(
+        status=overall,
+        postgres=pg_status,
+        banner=banner_status,
+        scheduler=sched,
+        environment=settings.environment,
+    )

@@ -96,3 +96,7 @@ Thumbs.db
 # ===== Uploaded files (runtime, not committed) =====
 uploads/
 
+# ===== Part 15: backups and scan reports =====
+backups/
+reports/
+

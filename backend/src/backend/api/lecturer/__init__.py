@@ -28,7 +28,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.auth import require_role
-from src.backend.banner import get_banner_client
+from src.backend.banner import get_banner_client, set_banner_actor
 from src.backend.banner.types import SubmitGradeRequest
 from src.backend.db.models import LecturerGrade, User
 from src.backend.db.session import get_session
@@ -616,6 +616,7 @@ async def finalise_offering_grades(
             detail="No submitted grades ready to finalise",
         )
 
+    set_banner_actor(lecturer.id)
     banner = get_banner_client()
     banner_failures: list[str] = []
     for r in rows:
