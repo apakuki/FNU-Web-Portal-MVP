@@ -1,0 +1,156 @@
+[
+  {
+    "code": "enrolment.active_students",
+    "name": "Active Students",
+    "category": "enrolment",
+    "unit": "count",
+    "applies_to_role": "vc",
+    "target_default": 5000,
+    "direction": "higher_better",
+    "description": "Total students with an active enrolment status.",
+    "source": "auto"
+  },
+  {
+    "code": "enrolment.new_applications",
+    "name": "New Applications",
+    "category": "enrolment",
+    "unit": "count",
+    "applies_to_role": "vc",
+    "target_default": 200,
+    "direction": "higher_better",
+    "description": "Applications submitted in the selected period.",
+    "source": "auto"
+  },
+  {
+    "code": "applications.avg_decision_hours",
+    "name": "Avg Application Decision Time",
+    "category": "processing",
+    "unit": "hours",
+    "applies_to_role": "manager",
+    "target_default": 48,
+    "direction": "lower_better",
+    "description": "Average hours from submission to decision for applications decided in the period.",
+    "source": "auto"
+  },
+  {
+    "code": "applications.approval_rate",
+    "name": "Application Approval Rate",
+    "category": "processing",
+    "unit": "percent",
+    "applies_to_role": "manager",
+    "target_default": 70,
+    "direction": "higher_better",
+    "description": "Approved applications as a percentage of decided applications in the period.",
+    "source": "auto"
+  },
+  {
+    "code": "payments.total_collected_fjd",
+    "name": "Revenue Collected",
+    "category": "finance",
+    "unit": "currency",
+    "applies_to_role": "finance",
+    "target_default": 1000000,
+    "direction": "higher_better",
+    "description": "Sum of confirmed payments in FJD for the period.",
+    "source": "auto"
+  },
+  {
+    "code": "payments.count_confirmed",
+    "name": "Confirmed Payments",
+    "category": "finance",
+    "unit": "count",
+    "applies_to_role": "finance",
+    "target_default": 500,
+    "direction": "higher_better",
+    "description": "Number of payment attempts that reached status=confirmed in the period.",
+    "source": "auto"
+  },
+  {
+    "code": "payments.outstanding_balance_fjd",
+    "name": "Outstanding Receivables",
+    "category": "finance",
+    "unit": "currency",
+    "applies_to_role": "finance",
+    "target_default": 200000,
+    "direction": "lower_better",
+    "description": "Outstanding invoice balance owed by students (Banner totals − confirmed payments).",
+    "source": "auto"
+  },
+  {
+    "code": "enquiries.avg_resolution_hours",
+    "name": "Avg Enquiry Resolution Time",
+    "category": "service",
+    "unit": "hours",
+    "applies_to_role": "manager",
+    "target_default": 24,
+    "direction": "lower_better",
+    "description": "Average hours from enquiry open to resolution in the period.",
+    "source": "auto"
+  },
+  {
+    "code": "enquiries.resolved_count",
+    "name": "Enquiries Resolved",
+    "category": "service",
+    "unit": "count",
+    "applies_to_role": "manager",
+    "target_default": 50,
+    "direction": "higher_better",
+    "description": "Enquiries resolved in the period.",
+    "source": "auto"
+  },
+  {
+    "code": "chatbot.total_queries",
+    "name": "Chatbot Queries Handled",
+    "category": "service",
+    "unit": "count",
+    "applies_to_role": "manager",
+    "target_default": 1000,
+    "direction": "higher_better",
+    "description": "Conversations recorded in the chatbot in the period.",
+    "source": "auto"
+  },
+  {
+    "code": "chatbot.escalation_rate",
+    "name": "Chatbot Escalation Rate",
+    "category": "service",
+    "unit": "percent",
+    "applies_to_role": "manager",
+    "target_default": 15,
+    "direction": "lower_better",
+    "description": "Percentage of conversations in the period that escalated to staff.",
+    "source": "auto"
+  },
+  {
+    "code": "grading.finalised_count",
+    "name": "Grades Finalised",
+    "category": "academic",
+    "unit": "count",
+    "applies_to_role": "manager",
+    "target_default": 100,
+    "direction": "higher_better",
+    "description": "Grade rows finalised in the period.",
+    "source": "auto"
+  },
+  {
+    "code": "staff.training_hours",
+    "name": "Monthly Staff Training Hours",
+    "category": "workforce",
+    "unit": "hours",
+    "applies_to_role": "manager",
+    "target_default": 8,
+    "direction": "higher_better",
+    "description": "Training hours delivered to the team in the month. Manual entry by section heads.",
+    "source": "manual"
+  },
+  {
+    "code": "staff.satisfaction_score",
+    "name": "Team Satisfaction Score",
+    "category": "workforce",
+    "unit": "score",
+    "applies_to_role": "manager",
+    "target_default": 8,
+    "direction": "higher_better",
+    "description": "Team satisfaction score on a 1–10 scale. Manual entry by section heads.",
+    "source": "manual"
+  }
+]

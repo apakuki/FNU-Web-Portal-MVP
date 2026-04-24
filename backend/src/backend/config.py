@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # Public app URL (used in QR verification links) — Part 11
     public_app_url: str = "http://localhost"
 
+    # KPI dashboard — Part 14
+    kpi_scheduler_enabled: bool = True
+    kpi_compute_interval_minutes: int = 60
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @model_validator(mode="after")

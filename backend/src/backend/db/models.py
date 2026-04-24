@@ -217,6 +217,13 @@ class KpiDefinition(Base):
     unit: Mapped[str] = mapped_column(Text, nullable=False)
     applies_to_role: Mapped[str] = mapped_column(Text, nullable=False)
     target_default: Mapped[float | None] = mapped_column(Numeric)
+    direction: Mapped[str] = mapped_column(
+        Text, nullable=False, default="higher_better", server_default="higher_better"
+    )
+    description: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(
+        Text, nullable=False, default="auto", server_default="auto"
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

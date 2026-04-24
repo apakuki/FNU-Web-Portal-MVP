@@ -743,56 +743,66 @@ Server-rendered verification page.
 
 ---
 
-## KPI
+## KPI (Part 14)
 
-### GET /api/kpi/dashboard (auth, role: manager | dean | vc | finance | staff)
+All KPI routes are mounted under `/api/admin/kpi/...`.
 
-**Query params**: `view` (vc | dean | section_head | me | finance), `period` (current | previous | ytd | custom), `date_from`, `date_to`, `college`, `function`
+**Common query params** (on all dashboard + value + compute endpoints):
+- `preset`: `current_semester` (default) | `ytd` | `custom`
+- `period_start`, `period_end`: required when `preset=custom`; range ≤ 366 days
 
-**Response 200**
-```json
-{
-  "kpis": [
-    {
-      "code": "application_turnaround_hours",
-      "name": "Application Turnaround",
-      "value": 18.5,
-      "target": 24,
-      "unit": "hours",
-      "status": "green",
-      "trend": [12, 15, 18, 22, 18]
-    }
-  ],
-  "drill_down_available": true
-}
-```
+### GET /api/admin/kpi/definitions (auth, role: staff | admin | manager | vc | finance)
 
-### GET /api/kpi/dashboard/drill-down (auth, role: manager | dean | vc)
+Returns every KPI definition (code, name, category, unit, target, direction, description, source).
 
-**Query params**: `kpi_code`, `level` (institution | college | function | individual), `parent_id`
-
-### POST /api/kpi/values (auth, role: staff | manager)
-
-Manual KPI entry.
-
-**Request**
-```json
-{
-  "kpi_code": "enquiries_resolved",
-  "value": 15,
-  "period_start": "2026-04-14",
-  "period_end": "2026-04-18"
-}
-```
-
-### GET /api/kpi/targets (auth, role: admin)
-
-### PUT /api/kpi/targets/{kpi_code} (auth, role: admin)
+### PUT /api/admin/kpi/definitions/{code}/target (auth, role: admin)
 
 **Request**
 ```json
 { "target_default": 24 }
 ```
+
+Audit-logged as `kpi.target.update` with before/after values.
+
+### GET /api/admin/kpi/values (auth, role: staff | admin | manager | vc | finance)
+
+Returns computed + manual KPI rows for the selected period, with traffic-light status derived from target + direction.
+
+### GET /api/admin/kpi/history/{code} (auth)
+
+Returns up to 100 prior periods for a single KPI code.
+
+### POST /api/admin/kpi/compute (auth, role: admin)
+
+Triggers the full compute pass for the selected period. Audit-logged as `kpi.compute`. The APScheduler job runs the same pass automatically (see `KPI_COMPUTE_INTERVAL_MINUTES`).
+
+### POST /api/admin/kpi/manual (auth, role: manager | admin | staff)
+
+Records a manual KPI value. Auto-sourced KPIs are rejected (400 "KPI does not accept manual input").
+
+**Request**
+```json
+{
+  "kpi_code": "staff.training_hours",
+  "value": 12,
+  "period_start": "2026-04-01",
+  "period_end": "2026-04-30",
+  "college": "CBHTS"
+}
+```
+
+### Dashboards
+
+Each dashboard returns `{ view, period_start, period_end, generated_at, cards: [ {code, name, category, unit, direction, value, target, status} ] }`. `status` ∈ `{green, amber, red, grey}` via the traffic-light rule (±20% of target, flipped for `lower_better`).
+
+| Endpoint | Role |
+|---|---|
+| `GET /api/admin/kpi/dashboard/vc` | `vc`, `admin` |
+| `GET /api/admin/kpi/dashboard/dean` | `manager`, `vc`, `admin` |
+| `GET /api/admin/kpi/dashboard/section-head` | `manager`, `admin` |
+| `GET /api/admin/kpi/dashboard/finance` | `finance`, `admin` |
+| `GET /api/admin/kpi/dashboard/me` | any authenticated non-student |
+| `GET /api/admin/kpi/dashboard/finance/export` | `finance`, `admin` — CSV response |
 
 ---
 

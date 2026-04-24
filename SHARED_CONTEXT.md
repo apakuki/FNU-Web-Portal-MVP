@@ -47,8 +47,9 @@ FNU Web Portal MVP/
 │   │   │   ├── admin_students.py # GET/POST /api/admin/students(/{id}/overrides)
 │   │   │   │                     # GET /api/admin/dashboard/summary
 │   │   │   ├── admin_enquiries.py # CRUD /api/admin/enquiries + feedback
-│   │   │   └── lecturer/         # GET /api/lecturer/rosters(/{id}/export)
-│   │   │                         # POST /api/lecturer/grades (+submit/finalise)
+│   │   │   ├── lecturer/         # GET /api/lecturer/rosters(/{id}/export)
+│   │   │   │                     # POST /api/lecturer/grades (+submit/finalise)
+│   │   │   └── kpi.py            # Part 14 — KPI dashboards + compute + manual + targets
 │   │   ├── payments/
 │   │   │   ├── base.py           # PaymentAdapter ABC; InitiateRequest/Response; CallbackResult
 │   │   │   ├── signature.py      # HMAC-SHA256 sign_payload / verify_signature (constant-time)
@@ -76,12 +77,16 @@ FNU Web Portal MVP/
 │   │   │   └── migrations/
 │   │   │       ├── env.py        # Alembic env (async)
 │   │   │       └── versions/     # Migration files (excluded from ruff lint)
+│   │   ├── scheduler.py          # Part 14 — APScheduler async lifecycle (KPI recompute job)
 │   │   └── services/
 │   │       ├── audit_service.py  # write_audit_log() — fire-and-forget DB write
 │   │       ├── notification_service.py  # send_notification() — stub, logs to DB
-│   │       └── chatbot_service.py  # FAQ retrieval, prompt composition, OpenRouter, escalation, PII masking
+│   │       ├── chatbot_service.py  # FAQ retrieval, prompt composition, OpenRouter, escalation, PII masking
+│   │       └── kpi_service.py    # Part 14 — compute_{enrolment,applications,payments,enquiries,chatbot,grading}, traffic_light, run_all
 │   ├── seed/
-│   │   └── chatbot_faq.json      # 10 seed FAQ entries (admissions, fees, deadlines, etc.)
+│   │   ├── chatbot_faq.json      # 10 seed FAQ entries (admissions, fees, deadlines, etc.)
+│   │   ├── notification_templates.json  # Part 11 — email/SMS templates
+│   │   └── kpi_definitions.json  # Part 14 — 14 seeded KPI definitions (auto + manual)
 │   └── tests/
 │       ├── test_health.py
 │       ├── test_auth.py
@@ -94,7 +99,8 @@ FNU Web Portal MVP/
 │       ├── test_payments.py
 │       ├── test_admin_students.py   # Part 12 — search, overrides, schemas
 │       ├── test_admin_enquiries.py  # Part 12 — enquiry workflow, feedback
-│       └── test_lecturer.py         # Part 13 — rosters, grade workflow, exports
+│       ├── test_lecturer.py         # Part 13 — rosters, grade workflow, exports
+│       └── test_kpi.py              # Part 14 — traffic light, periods, RBAC, dashboards
 └── frontend/
     ├── package.json              # Next.js 15, next-auth, zod, vitest, @testing-library
     ├── tsconfig.json             # paths: { "@/*": ["./*"] }
@@ -185,6 +191,8 @@ FNU Web Portal MVP/
 | `Notification` | `notifications` | Outbound notification records |
 | `NotificationTemplate` | `notification_templates` | Email/SMS templates, keyed by `code`; `{variable}` interpolation |
 | `LecturerGrade` | `lecturer_grades` | Part 13 — draft/submitted/finalised grade rows per (offering, student, assessment_period) |
+| `KpiDefinition` | `kpi_definitions` | Part 14 — code, name, unit, applies_to_role, target_default, direction (`higher_better`\|`lower_better`), source (`auto`\|`manual`) |
+| `KpiValue` | `kpi_values` | Part 14 — value + target per KPI code per period, optionally scoped to `staff_user_id`/`college`/`function` |
 | `StudentProfile` | `student_profiles` | Address + emergency contact; 1:1 with `users` |
 | `ProfilePhoto` | `profile_photos` | Resized 400x400 JPEG bytes in `LargeBinary`, 1:1 with `users` |
 | `AuditLog` | `audit_log` | Immutable action log (BigInteger PK) |
@@ -251,6 +259,11 @@ FNU Web Portal MVP/
 | `calculate_semester_gpas` | `api/registration.py` | `(courses) -> dict[str, float]` — keyed "YYYY-S1" |
 | `calculate_registration_fees` | `api/registration.py` | `(programme_code, num_courses, fee_items) -> list[FeeItem]` — partial-load pricing |
 | `_invoice_html` | `api/registration.py` | `(inv: InvoiceOut) -> str` — HTML template for WeasyPrint PDF generation |
+| `run_all` | `services/kpi_service.py` | `(db, period?) -> Period` — compute all auto KPIs for period, commit |
+| `traffic_light` | `services/kpi_service.py` | `(value, target, direction) -> "green"\|"amber"\|"red"\|"grey"` |
+| `current_semester_period` | `services/kpi_service.py` | `(today?) -> Period` — S1 Feb–Jun, S2 Jul–Nov |
+| `record_manual_value` | `services/kpi_service.py` | `(db, *, kpi_code, period, value, ...)` — upserts manual KPI row, commits |
+| `start_scheduler` / `shutdown_scheduler` | `scheduler.py` | APScheduler async lifecycle; disabled via `KPI_SCHEDULER_ENABLED=false` |
 
 ### Frontend (`frontend/`)
 
@@ -318,6 +331,18 @@ FNU Web Portal MVP/
 | `/api/lecturer/grades/{offering_id}/submit` | `api/lecturer/__init__.py` | `require_role("lecturer")` — draft → submitted; requires all grades filled |
 | `/api/lecturer/grades/{offering_id}/finalise` | `api/lecturer/__init__.py` | `require_role("lecturer")` — submitted → finalised; writes to Banner |
 | `/api/lecturer/grades/{offering_id}` (GET) | `api/lecturer/__init__.py` | `require_role("lecturer")` — current grade entries with workflow status |
+| `/api/admin/kpi/definitions` | `api/kpi.py` | `require_role("staff","admin","manager","vc","finance")` — list all KPI defs |
+| `/api/admin/kpi/definitions/{code}/target` (PUT) | `api/kpi.py` | `require_role("admin")` — update target; audit-logged |
+| `/api/admin/kpi/values` | `api/kpi.py` | `require_role("staff","admin","manager","vc","finance")` — filter by code/preset/period |
+| `/api/admin/kpi/history/{code}` | `api/kpi.py` | `require_role("staff","admin","manager","vc","finance")` — up to 100 prior periods |
+| `/api/admin/kpi/compute` (POST) | `api/kpi.py` | `require_role("admin")` — trigger recompute for preset/custom period; audit-logged |
+| `/api/admin/kpi/manual` (POST) | `api/kpi.py` | `require_role("manager","admin","staff")` — record manual KPI value; auto KPIs rejected |
+| `/api/admin/kpi/dashboard/vc` | `api/kpi.py` | `require_role("vc","admin")` — VC/SLT cards |
+| `/api/admin/kpi/dashboard/dean` | `api/kpi.py` | `require_role("manager","vc","admin")` — Dean/Manager cards |
+| `/api/admin/kpi/dashboard/section-head` | `api/kpi.py` | `require_role("manager","admin")` — Section Head cards |
+| `/api/admin/kpi/dashboard/finance` | `api/kpi.py` | `require_role("finance","admin")` — Finance cards |
+| `/api/admin/kpi/dashboard/finance/export` | `api/kpi.py` | `require_role("finance","admin")` — CSV export; audit-logged |
+| `/api/admin/kpi/dashboard/me` | `api/kpi.py` | Authenticated (any non-student role) — own KPIs |
 
 **Note:** `registration_router` and `payments_router` are included without a prefix (routes define their own `/api/...` paths).
 
@@ -336,6 +361,7 @@ FNU Web Portal MVP/
 **Portal routes added in Part 11:** `(portal)/profile/`, `(portal)/id-card/`.
 **Admin routes added in Part 12:** `(admin)/admin/students/` (+ `[id]`) and `(admin)/admin/enquiries/` (+ `[id]`); admin dashboard now renders live counts + processing-time cards.
 **Lecturer routes added in Part 13:** `(lecturer)/lecturer/courses/` (+ `[offeringId]` with autosaving grade entry grid) and `(lecturer)/lecturer/grades/` (course picker); dashboard shows offering / student / grading counts.
+**Admin routes added in Part 14:** `(admin)/admin/kpi/` hub + `vc/`, `dean/`, `section-head/`, `finance/`, `me/`, `targets/` subroutes. Shared Client Component `components/kpi-dashboard.tsx` renders cards, period filters (current semester / YTD / custom), traffic-light styling, recompute + CSV export buttons.
 
 **Embed route headers:** `/embed/*` sends `Content-Security-Policy: frame-ancestors <NEXT_PUBLIC_EMBED_ALLOWED_ORIGINS>` (default `*`) and does **not** set `X-Frame-Options`. All other routes keep `X-Frame-Options: DENY`.
 
@@ -384,6 +410,8 @@ FNU Web Portal MVP/
 | `PROFILE_PHOTO_MAX_BYTES` | `2097152` | No | 2 MB upload cap |
 | `PROFILE_PHOTO_TARGET_SIZE` | `400` | No | Square resize target in pixels |
 | `PUBLIC_APP_URL` | `http://localhost` | Yes in prod | Used to build QR `/verify/<qr>` URLs |
+| `KPI_SCHEDULER_ENABLED` | `true` | No | Enables the APScheduler KPI recompute job. Set `false` in CI/tests. |
+| `KPI_COMPUTE_INTERVAL_MINUTES` | `60` | No | Interval between scheduled KPI recomputes |
 
 ### Frontend (Next.js env conventions)
 
@@ -470,4 +498,4 @@ cd frontend && npx next build
 
 ---
 
-*Last updated: Part 13 complete (Lecturer Interface: `/api/lecturer/rosters` lists the authenticated lecturer's offerings with grading counts, `/api/lecturer/rosters/{id}` returns the scoped roster merged with draft/submitted/finalised grade rows, `/api/lecturer/rosters/{id}/export` serves CSV / Excel-compatible CSV / PDF; `/api/lecturer/grades` upserts draft grades with autosave, `/submit` locks drafts for review, `/finalise` writes through to Banner via `submit_grade`; `lecturer_grades` table persists the workflow and every state transition is audit-logged. Frontend: `(lecturer)/lecturer/page.tsx` dashboard cards, `(lecturer)/lecturer/courses/` list + roster/grade-entry detail page with per-student grade select, status badges, and three export buttons. Part 14 — KPI dashboard — is next.)*
+*Last updated: Part 14 complete (KPI Dashboard: `services/kpi_service.py` exposes `run_all` — computes 12 auto KPIs across enrolment, applications, payments (incl. Banner outstanding receivables), enquiries, chatbot, grading — plus `traffic_light` (green/amber/red/grey based on target + direction) and `record_manual_value` for section-head entries. `api/kpi.py` serves definition + target CRUD, value listing, history, manual input, admin-triggered recompute, and five role-scoped dashboards (vc/dean/section-head/finance/me) with period presets (current semester / YTD / custom, 366-day cap). `scheduler.py` hooks APScheduler into FastAPI's lifespan and runs `run_all` every `KPI_COMPUTE_INTERVAL_MINUTES`. Alembic migration `e5f6a7b8c9d0` adds `direction`, `description`, `source` to `kpi_definitions` plus index on `(kpi_code, period_start, period_end)`. Seed: `backend/seed/kpi_definitions.json` (14 KPIs: 12 auto + 2 manual). Frontend: `components/kpi-dashboard.tsx` shared Client Component, pages under `(admin)/admin/kpi/` (hub + vc/dean/section-head/finance/me/targets). Part 15 — Non-functional hardening — is next.)*

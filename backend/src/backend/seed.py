@@ -1,17 +1,24 @@
 import asyncio
 import json
+from decimal import Decimal
 from pathlib import Path
 
 from sqlalchemy import select
 
 from src.backend.auth import hash_password
-from src.backend.db.models import ChatbotKnowledge, NotificationTemplate, User
+from src.backend.db.models import (
+    ChatbotKnowledge,
+    KpiDefinition,
+    NotificationTemplate,
+    User,
+)
 from src.backend.db.session import async_session_factory
 
 FAQ_SEED_PATH = Path(__file__).resolve().parents[2] / "seed" / "chatbot_faq.json"
 TEMPLATES_SEED_PATH = (
     Path(__file__).resolve().parents[2] / "seed" / "notification_templates.json"
 )
+KPI_SEED_PATH = Path(__file__).resolve().parents[2] / "seed" / "kpi_definitions.json"
 
 SEED_USERS = [
     {
@@ -144,11 +151,43 @@ async def seed_notification_templates(session) -> None:
         print(f"  created template: {entry['code']}")
 
 
+async def seed_kpi_definitions(session) -> None:
+    if not KPI_SEED_PATH.exists():
+        print(f"  skipped KPI seed (missing file: {KPI_SEED_PATH})")
+        return
+
+    entries = json.loads(KPI_SEED_PATH.read_text())
+    for entry in entries:
+        existing = await session.scalar(
+            select(KpiDefinition).where(KpiDefinition.code == entry["code"])
+        )
+        target = entry.get("target_default")
+        if existing:
+            print(f"  exists KPI: {entry['code']}")
+            continue
+        session.add(
+            KpiDefinition(
+                code=entry["code"],
+                name=entry["name"],
+                category=entry["category"],
+                unit=entry["unit"],
+                applies_to_role=entry["applies_to_role"],
+                target_default=Decimal(str(target)) if target is not None else None,
+                direction=entry.get("direction", "higher_better"),
+                description=entry.get("description"),
+                source=entry.get("source", "auto"),
+                is_active=True,
+            )
+        )
+        print(f"  created KPI: {entry['code']}")
+
+
 async def seed() -> None:
     async with async_session_factory() as session:
         await seed_users(session)
         await seed_chatbot_faq(session)
         await seed_notification_templates(session)
+        await seed_kpi_definitions(session)
         await session.commit()
     print("Seed complete.")
 

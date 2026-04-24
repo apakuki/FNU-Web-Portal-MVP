@@ -1545,3 +1545,84 @@ cd frontend && npx next build
 ```
 
 Part 13 adds 19 backend tests (schema validation, role guards, roster scoping, upsert rejections, submit/finalise workflow, Banner write-through, CSV export). Full backend suite now passes 230 tests; frontend remains at 22.
+
+---
+
+## Part 14: KPI Dashboard
+
+### Setup
+
+- [ ] Stack running (`./scripts/start.sh`) with `BANNER_MODE=mock`
+- [ ] DB migrated through `e5f6a7b8c9d0` (`alembic upgrade head`)
+- [ ] `python -m src.backend.seed` has been run — the 14 KPI definitions are loaded (12 auto + 2 manual)
+- [ ] Logged in as `admin@fnu.ac.fj` / `admin123` in one browser; secondary tabs for `vc@fnu.ac.fj` / `vc123456`, `manager@fnu.ac.fj` / `manager123`, `finance@fnu.ac.fj` / `finance123`
+
+### KPI hub (`/admin/kpi`)
+
+- [ ] Navigate to **KPI Dashboard** from the admin sidebar; the hub shows cards visible to the current role (admin sees all six)
+- [ ] As `vc@fnu.ac.fj`, only VC / SLT, Dean, and My KPIs cards appear
+- [ ] As `finance@fnu.ac.fj`, only the Finance and My KPIs cards appear
+
+### VC / SLT dashboard (`/admin/kpi/vc`)
+
+- [ ] Before any compute run, cards render with value 0 and a grey or red status (targets set, no data yet)
+- [ ] Click **Recompute** → "Recompute complete" shown; the cards reload with current-semester counts (active students ≥ 2 from seeded data, chatbot queries reflect any conversations, etc.)
+- [ ] `SELECT action, target_id FROM audit_log WHERE action='kpi.compute' ORDER BY occurred_at DESC LIMIT 1;` returns a row with target_id `YYYY-MM-DD:YYYY-MM-DD`
+- [ ] Switch **Period** to Year to date; the cards reload for 1 Jan → today
+- [ ] Switch to Custom, pick From=2026-01-01 To=2026-04-30; cards reload
+- [ ] As `student@fnu.ac.fj`, `curl -H "Authorization: Bearer <student_token>" http://localhost/api/admin/kpi/dashboard/vc` returns 403
+
+### Dean / Manager dashboard (`/admin/kpi/dean`)
+
+- [ ] Navigate to `/admin/kpi/dean` as manager; the 6 dean KPIs render (processing + service + academic)
+- [ ] As finance, visiting the URL redirects via the backend 403 (the fetch shows the error banner)
+
+### Section Head dashboard (`/admin/kpi/section-head`)
+
+- [ ] The "Record manual KPI value" form below the cards lists only manual KPIs (`Monthly Staff Training Hours`, `Team Satisfaction Score`)
+- [ ] Submit `Monthly Staff Training Hours = 12`, period = this month, college = `CBHTS` → "Saved manual KPI entry"
+- [ ] `SELECT kpi_code, value, college, source FROM kpi_values WHERE kpi_code='staff.training_hours' ORDER BY recorded_at DESC LIMIT 1;` shows the row with `source='manual'` and `college='CBHTS'`
+- [ ] `SELECT action, target_id FROM audit_log WHERE action='kpi.manual.record' ORDER BY occurred_at DESC LIMIT 1;` returns the row
+- [ ] Attempt to POST `/api/admin/kpi/manual` with an auto KPI (e.g. `enrolment.active_students`) → 400 "KPI does not accept manual input"
+
+### Finance dashboard (`/admin/kpi/finance`)
+
+- [ ] Navigate to `/admin/kpi/finance`; three cards render (revenue, confirmed payments, outstanding receivables) with traffic-light colouring
+- [ ] Click **Export CSV**; a `finance_kpi_<start>_<end>.csv` downloads with columns `kpi_code,name,unit,value,target,status`
+- [ ] `SELECT action, target_id FROM audit_log WHERE action='kpi.finance.export' ORDER BY occurred_at DESC LIMIT 1;` shows the export audit entry
+- [ ] As manager, `curl -H "Authorization: Bearer <manager_token>" http://localhost/api/admin/kpi/dashboard/finance` returns 403
+
+### My KPIs (`/admin/kpi/me`)
+
+- [ ] Navigate to `/admin/kpi/me`; two KPI cards render plus a third "Enquiries You Resolved" card scoped to the current user
+- [ ] Assign and resolve an enquiry as the logged-in user (see Part 12), reload — the "Enquiries You Resolved" value increments
+
+### KPI targets (`/admin/kpi/targets`)
+
+- [ ] As admin, navigate to `/admin/kpi/targets`; the table lists all 14 KPIs with editable target fields
+- [ ] Change the target for `enrolment.active_students` from 5000 to 10 and click **Save** → "Updated target for enrolment.active_students"
+- [ ] Reload `/admin/kpi/vc`; the card for active students now shows green (value ≥ 10)
+- [ ] As non-admin (e.g. manager), PUT `/api/admin/kpi/definitions/enrolment.active_students/target` returns 403
+- [ ] `SELECT action, target_id, before, after FROM audit_log WHERE action='kpi.target.update' ORDER BY occurred_at DESC LIMIT 1;` captures the before/after value
+
+### Date-range guards
+
+- [ ] `curl -H "Authorization: Bearer <vc_token>" "http://localhost/api/admin/kpi/dashboard/vc?preset=custom"` → 400 "period_start and period_end are required"
+- [ ] `curl -H "Authorization: Bearer <vc_token>" "http://localhost/api/admin/kpi/dashboard/vc?preset=custom&period_start=2020-01-01&period_end=2025-01-01"` → 400 "Date range cannot exceed 366 days"
+
+### Scheduler
+
+- [ ] With `KPI_SCHEDULER_ENABLED=true` (the default), restart the backend and watch the logs; within `KPI_COMPUTE_INTERVAL_MINUTES` (default 60), a log line "KPI scheduler: recompute complete" appears
+- [ ] Set `KPI_SCHEDULER_ENABLED=false` and restart; logs show "KPI scheduler disabled"; no scheduled job fires
+
+### Automated tests
+
+```bash
+cd backend && KPI_SCHEDULER_ENABLED=false .venv/bin/python -m pytest tests/test_kpi.py -v
+cd backend && KPI_SCHEDULER_ENABLED=false .venv/bin/python -m pytest tests/ -q
+cd frontend && npx vitest run
+cd frontend && npx tsc --noEmit
+cd frontend && npx next build
+```
+
+Part 14 adds 20 backend tests (traffic-light logic, period helpers, schema validation, RBAC across all five dashboards plus target + manual endpoints, custom-period guards, VC happy-path). Full backend suite now passes 250 tests; frontend remains at 22.

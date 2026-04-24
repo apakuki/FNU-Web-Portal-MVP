@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,14 +17,25 @@ from src.backend.api.chatbot import router as chatbot_router
 from src.backend.api.communications import router as communications_router
 from src.backend.api.health import router as health_router
 from src.backend.api.id_card import router as id_card_router
+from src.backend.api.kpi import router as kpi_router
 from src.backend.api.lecturer import router as lecturer_router
 from src.backend.api.payments import router as payments_router
 from src.backend.api.profile import router as profile_router
 from src.backend.api.registration import router as registration_router
 from src.backend.config import settings
 from src.backend.rate_limit import limiter
+from src.backend.scheduler import shutdown_scheduler, start_scheduler
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    try:
+        yield
+    finally:
+        shutdown_scheduler()
 
 
 def create_app() -> FastAPI:
@@ -34,6 +46,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         docs_url=None if is_prod else "/api/docs",
         openapi_url=None if is_prod else "/api/openapi.json",
+        lifespan=lifespan,
     )
 
     app.state.limiter = limiter
@@ -68,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_students_router)
     app.include_router(admin_enquiries_router)
     app.include_router(lecturer_router)
+    app.include_router(kpi_router)
 
     return app
 

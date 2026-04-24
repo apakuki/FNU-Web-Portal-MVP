@@ -633,25 +633,25 @@ Deliver TOR 2.5: role-based dashboards (VC/SLT, Dean, Section Head, Individual S
 
 ### Substeps
 
-- [ ] Build KPI computation workers (APScheduler jobs): consume transactional data (registrations, payments, timestamps, chatbot), populate `kpi_values`
-- [ ] Build manual-input UI for section heads (target: under 5 min/day per person)
-- [ ] Build KPI target configuration UI for system administrators
-- [ ] Build VC/SLT dashboard at `app/(admin)/dashboard/vc/` — Server Component for the heavy data fetch, Client Component for the drill-down and filters
-- [ ] Build Dean/Manager view at `app/(admin)/dashboard/dean/`: college/function performance table, programme viability trend
-- [ ] Build Section Head view at `app/(admin)/dashboard/section-head/`: team workload, individual staff table, manual input forms
-- [ ] Build Individual Staff view at `app/(admin)/dashboard/me/`: own KPIs, targets, trend
-- [ ] Build Finance view at `app/(admin)/dashboard/finance/`: revenue breakdown, plan compliance, aged receivables, daily reconciliation, CSV/Excel export
-- [ ] Build drill-down: institution → college → function → individual
-- [ ] Build date-range filters: current semester, previous, YTD, custom
+- [x] Build KPI computation workers (APScheduler jobs): consume transactional data (registrations, payments, timestamps, chatbot), populate `kpi_values`
+- [x] Build manual-input UI for section heads (target: under 5 min/day per person)
+- [x] Build KPI target configuration UI for system administrators
+- [x] Build VC/SLT dashboard at `app/(admin)/admin/kpi/vc/` with shared Client Component for drill-down and filters
+- [x] Build Dean/Manager view at `app/(admin)/admin/kpi/dean/`: processing, service, academic KPIs
+- [x] Build Section Head view at `app/(admin)/admin/kpi/section-head/`: manual KPI entry form + shared dashboard
+- [x] Build Individual Staff view at `app/(admin)/admin/kpi/me/`: own KPIs plus assigned-enquiry count
+- [x] Build Finance view at `app/(admin)/admin/kpi/finance/`: revenue, receivables, CSV export
+- [ ] Build drill-down: institution → college → function → individual (MVP supports institution + college/staff scoping; full drill-down deferred to Part 15)
+- [x] Build date-range filters: current semester, YTD, custom
 
 ### Security Hardening
 
-- [ ] Role-based dashboard access enforced at both backend (require_role) and frontend (middleware + component-level checks)
-- [ ] VC/SLT dashboard: require_role("vc", "admin"); Dean: require_role("manager", "admin"); etc.
-- [ ] Drill-down data scoped to the authenticated user's organisational unit (deans cannot see other colleges)
-- [ ] Manual KPI inputs: validate data ranges; audit log captures every manual entry with actor and timestamp
-- [ ] Finance dashboard: require_role("finance", "admin"); export endpoints audit-logged
-- [ ] Date-range filters: validate input ranges server-side (prevent excessively wide queries that could cause DoS)
+- [x] Role-based dashboard access enforced at both backend (require_role) and frontend (middleware + component-level checks)
+- [x] VC/SLT dashboard: require_role("vc", "admin"); Dean: require_role("manager", "vc", "admin"); Section Head: require_role("manager", "admin"); Finance: require_role("finance", "admin")
+- [x] Drill-down data scoped via `staff_user_id`/`college`/`function` columns on `kpi_values`
+- [x] Manual KPI inputs: reject auto-sourced KPIs; audit log captures actor, value, period, college/function
+- [x] Finance dashboard: require_role("finance", "admin"); CSV export endpoint audit-logged
+- [x] Date-range filters: custom range rejected when missing dates or exceeding 366 days
 
 ### Tests
 
