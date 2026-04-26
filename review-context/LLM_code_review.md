@@ -375,12 +375,12 @@ review-report.md
 
 Structure:
 
-# Architecture Findings
-# Frontend Findings
-# Backend Findings
-# Database Findings
-# Security Findings
-# Performance Findings
+- Architecture Findings
+- Frontend Findings
+- Backend Findings
+- Database Findings
+- Security Findings
+- Performance Findings
 
 You now have a real audit document.
 
