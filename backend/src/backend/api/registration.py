@@ -5,6 +5,7 @@ All student-facing endpoints are scoped to the authenticated user's banner_id.
 
 from datetime import date, timedelta
 from html import escape as _html_escape
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
@@ -48,7 +49,7 @@ DAY_OFFSETS = {
 
 def check_prerequisites(
     course_code: str,
-    prerequisites: list[dict],
+    prerequisites: list[dict[str, Any]],
     completed: list[CompletedCourse],
 ) -> tuple[bool, list[str]]:
     if not prerequisites:
@@ -77,8 +78,8 @@ def _time_to_minutes(t: str) -> int:
     return int(h) * 60 + int(m)
 
 
-def detect_clashes(offerings: list[Offering]) -> list[dict]:
-    clashes: list[dict] = []
+def detect_clashes(offerings: list[Offering]) -> list[dict[str, Any]]:
+    clashes: list[dict[str, Any]] = []
     for i, a in enumerate(offerings):
         for b in offerings[i + 1:]:
             if a.day_of_week != b.day_of_week:
@@ -215,7 +216,7 @@ class RegistrationConfirmResponse(BaseModel):
     registered_courses: list[str]
     invoice_id: str | None = None
     total_fee_cents: int = 0
-    clashes: list[dict] = []
+    clashes: list[dict[str, Any]] = []
     message: str
 
 
@@ -284,7 +285,7 @@ class InvoiceOut(BaseModel):
 @router.get("/api/programme")
 async def get_programme(
     user: User = Depends(require_role("student")),
-):
+) -> ProgrammeResponse:
     banner_id = _require_banner_id(user)
     banner = get_banner_client()
     student = await banner.get_student(banner_id)
@@ -356,7 +357,7 @@ async def confirm_registration(
     request: Request,
     body: RegistrationConfirmRequest,
     user: User = Depends(require_role("student")),
-):
+) -> RegistrationConfirmResponse:
     banner_id = _require_banner_id(user)
     set_banner_actor(user.id)
     banner = get_banner_client()

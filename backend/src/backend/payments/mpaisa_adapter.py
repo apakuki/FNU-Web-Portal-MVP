@@ -10,6 +10,8 @@ contract once FNU procures sandbox credentials.
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
 from src.backend.payments.base import (
@@ -58,7 +60,7 @@ class MpaisaAdapter(PaymentAdapter):
             extra=data,
         )
 
-    def verify_callback(self, payload: dict, signature: str | None) -> CallbackResult:
+    def verify_callback(self, payload: dict[str, Any], signature: str | None) -> CallbackResult:
         if not verify_signature(payload, signature, self.secret):
             raise ValueError("Invalid M-PAiSA callback signature")
 

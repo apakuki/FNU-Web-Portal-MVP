@@ -10,12 +10,13 @@ from src.backend.api.registration import (
     check_prerequisites,
     detect_clashes,
 )
-from src.backend.banner.types import CompletedCourse, FeeItem, Offering, Semester, Campus
-
+from src.backend.banner.types import Campus, CompletedCourse, FeeItem, Offering, Semester
 
 # ---------- Helpers to build test fixtures ----------
 
-def _completed(course_code: str, grade: str, credits: int = 15, year: int = 2025, semester: str = "S1") -> CompletedCourse:
+def _completed(
+    course_code: str, grade: str, credits: int = 15, year: int = 2025, semester: str = "S1"
+) -> CompletedCourse:
     return CompletedCourse(
         course_code=course_code,
         course_name=f"{course_code} Name",
@@ -65,21 +66,27 @@ def test_prereqs_course_not_completed():
 
 def test_prereqs_course_completed_no_min_grade():
     completed = [_completed("ACC101", "C")]
-    met, issues = check_prerequisites("ACC201", [{"course_code": "ACC101", "min_grade": None}], completed)
+    met, issues = check_prerequisites(
+        "ACC201", [{"course_code": "ACC101", "min_grade": None}], completed
+    )
     assert met is True
     assert issues == []
 
 
 def test_prereqs_grade_below_minimum():
     completed = [_completed("ACC101", "C")]
-    met, issues = check_prerequisites("ACC201", [{"course_code": "ACC101", "min_grade": "B"}], completed)
+    met, issues = check_prerequisites(
+        "ACC201", [{"course_code": "ACC101", "min_grade": "B"}], completed
+    )
     assert met is False
     assert any("below required" in i for i in issues)
 
 
 def test_prereqs_grade_meets_minimum():
     completed = [_completed("ACC101", "A")]
-    met, issues = check_prerequisites("ACC201", [{"course_code": "ACC101", "min_grade": "B"}], completed)
+    met, issues = check_prerequisites(
+        "ACC201", [{"course_code": "ACC101", "min_grade": "B"}], completed
+    )
     assert met is True
     assert issues == []
 

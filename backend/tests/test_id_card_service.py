@@ -34,7 +34,7 @@ def test_verify_rejects_tampered_payload(monkeypatch):
 
     # Flip a single character in the payload → signature no longer matches.
     hacked = payload_b64[:-1] + ("A" if payload_b64[-1] != "A" else "B")
-    with pytest.raises(id_card_service.InvalidIdCardSignature):
+    with pytest.raises(id_card_service.InvalidIdCardSignatureError):
         id_card_service.verify_id_card(f"{hacked}.{sig_b64}")
 
 
@@ -44,7 +44,7 @@ def test_verify_rejects_wrong_secret(monkeypatch):
         user_id=uuid.uuid4(), banner_id="S00012345"
     )
     monkeypatch.setattr(id_card_service.settings, "id_card_secret", "b" * 32)
-    with pytest.raises(id_card_service.InvalidIdCardSignature):
+    with pytest.raises(id_card_service.InvalidIdCardSignatureError):
         id_card_service.verify_id_card(qr)
 
 
@@ -55,14 +55,14 @@ def test_verify_rejects_expired(monkeypatch):
         banner_id="S00012345",
         validity_days=-1,  # already expired
     )
-    with pytest.raises(id_card_service.ExpiredIdCard):
+    with pytest.raises(id_card_service.ExpiredIdCardError):
         id_card_service.verify_id_card(qr)
 
 
 def test_verify_rejects_malformed():
-    with pytest.raises(id_card_service.InvalidIdCardSignature):
+    with pytest.raises(id_card_service.InvalidIdCardSignatureError):
         id_card_service.verify_id_card("not-a-valid-qr")
-    with pytest.raises(id_card_service.InvalidIdCardSignature):
+    with pytest.raises(id_card_service.InvalidIdCardSignatureError):
         id_card_service.verify_id_card("only-one-part.")
 
 

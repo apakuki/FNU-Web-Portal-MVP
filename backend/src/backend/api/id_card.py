@@ -13,7 +13,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,8 +24,8 @@ from src.backend.config import settings
 from src.backend.db.models import ProfilePhoto, User
 from src.backend.db.session import get_session
 from src.backend.services.id_card_service import (
-    ExpiredIdCard,
-    InvalidIdCardSignature,
+    ExpiredIdCardError,
+    InvalidIdCardSignatureError,
     sign_id_card,
     verify_id_card,
 )
@@ -88,9 +88,9 @@ async def verify_id_card_endpoint(
     """Public endpoint — no auth. Returns only public-safe info."""
     try:
         payload = verify_id_card(qr_payload)
-    except ExpiredIdCard:
+    except ExpiredIdCardError:
         return VerifyOut(valid=False, reason="ID card has expired")
-    except InvalidIdCardSignature:
+    except InvalidIdCardSignatureError:
         return VerifyOut(valid=False, reason="Invalid or tampered QR code")
 
     try:
@@ -137,13 +137,12 @@ async def verify_id_card_endpoint(
 async def verify_photo(
     qr_payload: str,
     db: AsyncSession = Depends(get_session),
-):
+) -> Response:
     """Public photo serve — only returns bytes if the QR signature is valid."""
-    from fastapi import Response
 
     try:
         payload = verify_id_card(qr_payload)
-    except (ExpiredIdCard, InvalidIdCardSignature) as exc:
+    except (ExpiredIdCardError, InvalidIdCardSignatureError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     try:

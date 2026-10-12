@@ -13,6 +13,7 @@ endpoint so results are identical.
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
@@ -76,7 +77,7 @@ async def _upsert_value(
     value: float,
     source: str = "auto",
     target: float | None = None,
-    staff_user_id=None,
+    staff_user_id: uuid.UUID | None = None,
     college: str | None = None,
     function: str | None = None,
 ) -> KpiValue:
@@ -163,6 +164,8 @@ async def compute_applications(db: AsyncSession, period: Period) -> None:
         total_seconds = 0.0
         approved = 0
         for a in decided_rows:
+            if a.decided_at is None:
+                continue
             total_seconds += (a.decided_at - a.submitted_at).total_seconds()
             if a.status == "approved":
                 approved += 1
@@ -246,7 +249,9 @@ async def compute_enquiries(db: AsyncSession, period: Period) -> None:
     ).all()
     if resolved_rows:
         total_seconds = sum(
-            (e.resolved_at - e.opened_at).total_seconds() for e in resolved_rows
+            (e.resolved_at - e.opened_at).total_seconds()
+            for e in resolved_rows
+            if e.resolved_at is not None
         )
         avg_hours = (total_seconds / len(resolved_rows)) / 3600.0
     else:
@@ -370,7 +375,7 @@ async def record_manual_value(
     kpi_code: str,
     period: Period,
     value: float,
-    staff_user_id=None,
+    staff_user_id: uuid.UUID | None = None,
     college: str | None = None,
     function: str | None = None,
 ) -> KpiValue:

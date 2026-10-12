@@ -12,20 +12,22 @@ are looked up server-side after the signature checks out.
 from __future__ import annotations
 
 import base64
+import binascii
 import hmac
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
+from typing import Any
 
 from src.backend.config import settings
 
 
-class InvalidIdCardSignature(Exception):
+class InvalidIdCardSignatureError(Exception):
     pass
 
 
-class ExpiredIdCard(Exception):
+class ExpiredIdCardError(Exception):
     pass
 
 
@@ -66,34 +68,34 @@ def sign_id_card(
     return qr, expires_at
 
 
-def verify_id_card(qr: str) -> dict:
+def verify_id_card(qr: str) -> dict[str, Any]:
     """Verify the QR payload. Returns the decoded payload dict on success.
 
-    Raises InvalidIdCardSignature on tamper, ExpiredIdCard on expiry.
+    Raises InvalidIdCardSignatureError on tamper, ExpiredIdCardError on expiry.
     """
     if "." not in qr:
-        raise InvalidIdCardSignature("Malformed payload")
+        raise InvalidIdCardSignatureError("Malformed payload")
     payload_b64, sig_b64 = qr.split(".", 1)
 
     try:
         payload_bytes = _b64url_decode(payload_b64)
         sig = _b64url_decode(sig_b64)
-    except (ValueError, base64.binascii.Error) as exc:
-        raise InvalidIdCardSignature("Malformed encoding") from exc
+    except (ValueError, binascii.Error) as exc:
+        raise InvalidIdCardSignatureError("Malformed encoding") from exc
 
     expected = _hmac(payload_bytes)
     if not hmac.compare_digest(expected, sig):
-        raise InvalidIdCardSignature("Signature mismatch")
+        raise InvalidIdCardSignatureError("Signature mismatch")
 
     try:
         payload = json.loads(payload_bytes)
     except json.JSONDecodeError as exc:
-        raise InvalidIdCardSignature("Malformed payload JSON") from exc
+        raise InvalidIdCardSignatureError("Malformed payload JSON") from exc
 
     if not isinstance(payload, dict) or "e" not in payload or "u" not in payload:
-        raise InvalidIdCardSignature("Missing payload fields")
+        raise InvalidIdCardSignatureError("Missing payload fields")
 
     if datetime.now(UTC).timestamp() > payload["e"]:
-        raise ExpiredIdCard("ID card has expired")
+        raise ExpiredIdCardError("ID card has expired")
 
     return payload

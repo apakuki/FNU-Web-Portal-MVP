@@ -6,7 +6,7 @@ Caches programmes, courses, and fee schedules with a configurable TTL
 
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -23,7 +23,7 @@ class TTLCache:
         if key in self._store:
             expires_at, value = self._store[key]
             if now < expires_at:
-                return value
+                return cast(T, value)
 
         value = await fetch_fn()
         self._store[key] = (now + self._ttl, value)

@@ -1,5 +1,7 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -58,7 +60,7 @@ class Application(Base):
     application_number: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     applicant_email: Mapped[str] = mapped_column(Text, nullable=False)
     applicant_phone: Mapped[str | None] = mapped_column(Text)
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="submitted")
     status_reason: Mapped[str | None] = mapped_column(Text)
     assigned_staff_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -123,7 +125,7 @@ class PaymentAttempt(Base):
     currency: Mapped[str] = mapped_column(Text, nullable=False, default="FJD")
     gateway_reference: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="initiated")
-    callback_payload: Mapped[dict | None] = mapped_column(JSONB)
+    callback_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     confirmed_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )
@@ -141,7 +143,7 @@ class PaymentPlan(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     banner_invoice_id: Mapped[str] = mapped_column(Text, nullable=False)
-    schedule: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    schedule: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     deregistration_warning_week: Mapped[int] = mapped_column(Integer, default=4)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -157,7 +159,7 @@ class ChatbotConversation(Base):
         UUID(as_uuid=True), ForeignKey("users.id")
     )
     session_key: Mapped[str] = mapped_column(Text, nullable=False)
-    messages: Mapped[dict] = mapped_column(JSONB, nullable=False, default=list)
+    messages: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     escalated: Mapped[bool] = mapped_column(Boolean, default=False)
     escalated_to_staff_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
@@ -216,7 +218,7 @@ class KpiDefinition(Base):
     category: Mapped[str] = mapped_column(Text, nullable=False)
     unit: Mapped[str] = mapped_column(Text, nullable=False)
     applies_to_role: Mapped[str] = mapped_column(Text, nullable=False)
-    target_default: Mapped[float | None] = mapped_column(Numeric)
+    target_default: Mapped[Decimal | None] = mapped_column(Numeric)
     direction: Mapped[str] = mapped_column(
         Text, nullable=False, default="higher_better", server_default="higher_better"
     )
@@ -351,8 +353,8 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(Text, nullable=False)
     target_type: Mapped[str] = mapped_column(Text, nullable=False)
     target_id: Mapped[str] = mapped_column(Text, nullable=False)
-    before: Mapped[dict | None] = mapped_column(JSONB)
-    after: Mapped[dict | None] = mapped_column(JSONB)
+    before: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    after: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     reason: Mapped[str | None] = mapped_column(Text)
     ip_address: Mapped[str | None] = mapped_column(Text)
     occurred_at: Mapped[datetime] = mapped_column(

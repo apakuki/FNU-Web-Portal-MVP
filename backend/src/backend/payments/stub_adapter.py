@@ -9,7 +9,7 @@ callback verification can be exercised end-to-end in tests.
 from __future__ import annotations
 
 import secrets as pysecrets
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from src.backend.payments.base import (
     CallbackResult,
@@ -51,7 +51,7 @@ class StubPaymentAdapter(PaymentAdapter):
             extra={"stub": True, "callback_url": req.callback_url},
         )
 
-    def verify_callback(self, payload: dict, signature: str | None) -> CallbackResult:
+    def verify_callback(self, payload: dict[str, Any], signature: str | None) -> CallbackResult:
         required = {"payment_id", "gateway_reference", "status", "amount_cents"}
         missing = required - payload.keys()
         if missing:

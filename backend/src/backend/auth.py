@@ -1,6 +1,8 @@
 import hashlib
 import uuid
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import bcrypt
 import jwt
@@ -39,7 +41,7 @@ def create_access_token(user_id: str, role: str) -> tuple[str, str]:
     return token, jti
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except jwt.ExpiredSignatureError:
@@ -70,15 +72,15 @@ async def get_current_user(
     if not session:
         raise HTTPException(status_code=401, detail="Session invalid or expired")
 
-    result = await db.execute(select(User).where(User.id == uuid.UUID(payload["sub"])))
-    user = result.scalar_one_or_none()
+    user_result = await db.execute(select(User).where(User.id == uuid.UUID(payload["sub"])))
+    user = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
     return user
 
 
-def require_role(*roles: str):
+def require_role(*roles: str) -> Callable[..., Coroutine[Any, Any, User]]:
     async def role_checker(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:
             raise HTTPException(status_code=403, detail="Insufficient permissions")

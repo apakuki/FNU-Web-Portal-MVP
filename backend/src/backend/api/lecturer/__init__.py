@@ -20,6 +20,7 @@ import csv
 import html
 import io
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
@@ -29,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.auth import require_role
 from src.backend.banner import get_banner_client, set_banner_actor
-from src.backend.banner.types import SubmitGradeRequest
+from src.backend.banner.types import Offering, SubmitGradeRequest
 from src.backend.db.models import LecturerGrade, User
 from src.backend.db.session import get_session
 from src.backend.services.audit_service import write_audit_log
@@ -154,7 +155,7 @@ async def _offering_taught_by(
     offering_id: str,
     semester: str = DEFAULT_SEMESTER,
     year: int = DEFAULT_YEAR,
-):
+) -> Offering | None:
     banner = get_banner_client()
     offerings = await banner.get_offerings(semester=semester, year=year)
     for o in offerings:
@@ -361,7 +362,7 @@ async def export_roster(
 
     # pdf
     try:
-        from weasyprint import HTML  # type: ignore[import-untyped]
+        from weasyprint import HTML
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail=f"PDF export unavailable: {exc}"
@@ -457,7 +458,7 @@ async def upsert_grade_drafts(
     existing = {r.banner_student_id: r for r in existing_rows}
 
     saved = 0
-    audit_payloads: list[dict] = []
+    audit_payloads: list[dict[str, Any]] = []
     for bid, grade in grades_in:
         current = existing.get(bid)
         if current:

@@ -38,7 +38,7 @@ def get_banner_client() -> BannerClient:
                 "BANNER_API_URL and BANNER_API_KEY must be set when BANNER_MODE=live"
             )
 
-        inner = LiveBannerClient(
+        inner: BannerClient = LiveBannerClient(
             base_url=settings.banner_api_url,
             api_key=settings.banner_api_key,
             timeout_seconds=settings.banner_timeout_seconds,

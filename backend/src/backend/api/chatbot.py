@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.auth import get_optional_user, require_role
@@ -124,7 +124,7 @@ class AnalyticsOut(BaseModel):
     escalation_rate: float
     resolution_rate: float
     active_knowledge_entries: int
-    top_categories: list[dict]
+    top_categories: list[dict[str, Any]]
 
 
 # --- Helpers ---
@@ -468,7 +468,7 @@ async def list_conversations(
     if offset < 0:
         raise HTTPException(status_code=400, detail="offset must be >= 0")
 
-    conditions = []
+    conditions: list[ColumnElement[bool]] = []
     if escalated is not None:
         conditions.append(ChatbotConversation.escalated.is_(escalated))
     if q:

@@ -6,6 +6,7 @@ import csv
 import io
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -48,7 +49,7 @@ class InitiatePaymentResponse(BaseModel):
     gateway_reference: str
     redirect_url: str | None
     status: PaymentStatus
-    extra: dict = Field(default_factory=dict)
+    extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class BankConfirmRequest(BaseModel):
@@ -196,10 +197,10 @@ async def initiate_payment(
 async def _handle_callback(
     request: Request,
     method: PaymentMethod,
-    payload: dict,
+    payload: dict[str, Any],
     signature: str | None,
     db: AsyncSession,
-) -> dict:
+) -> dict[str, Any]:
     """Shared logic for M-PAiSA and MyCash callbacks — idempotent by gateway_reference."""
     secret = get_callback_secret(method)
 
@@ -263,7 +264,7 @@ async def mpaisa_callback(
     request: Request,
     db: AsyncSession = Depends(get_session),
     x_mpaisa_signature: str | None = Header(default=None),
-) -> dict:
+) -> dict[str, Any]:
     payload = await request.json()
     return await _handle_callback(request, PaymentMethod.MPAISA, payload, x_mpaisa_signature, db)
 
@@ -273,7 +274,7 @@ async def mycash_callback(
     request: Request,
     db: AsyncSession = Depends(get_session),
     x_mycash_signature: str | None = Header(default=None),
-) -> dict:
+) -> dict[str, Any]:
     payload = await request.json()
     return await _handle_callback(request, PaymentMethod.MYCASH, payload, x_mycash_signature, db)
 
@@ -284,7 +285,7 @@ async def bank_confirm(
     body: BankConfirmRequest,
     user: User = Depends(require_role("finance", "admin")),
     db: AsyncSession = Depends(get_session),
-) -> dict:
+) -> dict[str, Any]:
     try:
         payment_uuid = uuid.UUID(body.payment_id)
     except ValueError as exc:
@@ -340,9 +341,13 @@ async def reconciliation(
     format: str = "json",
     user: User = Depends(require_role("finance", "admin")),
     db: AsyncSession = Depends(get_session),
-):
+) -> ReconciliationReport | StreamingResponse:
     try:
-        dt_from = datetime.fromisoformat(date_from) if date_from else datetime.now(UTC) - timedelta(days=30)
+        dt_from = (
+            datetime.fromisoformat(date_from)
+            if date_from
+            else datetime.now(UTC) - timedelta(days=30)
+        )
         dt_to = datetime.fromisoformat(date_to) if date_to else datetime.now(UTC)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid date format (use ISO 8601)") from exc
@@ -500,7 +505,7 @@ async def create_payment_plan(
     body: CreatePlanRequest,
     user: User = Depends(require_role("student")),
     db: AsyncSession = Depends(get_session),
-) -> dict:
+) -> dict[str, Any]:
     if not user.banner_id:
         raise HTTPException(status_code=400, detail="No Banner ID linked to account")
 
