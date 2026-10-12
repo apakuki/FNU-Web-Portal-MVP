@@ -117,7 +117,7 @@ def process_profile_photo(
         raise HTTPException(status_code=400, detail="Only JPEG/PNG/WebP images are accepted")
 
     try:
-        img = Image.open(io.BytesIO(raw))
+        img: Image.Image = Image.open(io.BytesIO(raw))
         # Apply EXIF orientation THEN drop EXIF on save.
         img = ImageOps.exif_transpose(img)
         img = img.convert("RGB")
@@ -135,7 +135,9 @@ def process_profile_photo(
     return out.getvalue(), "image/jpeg"
 
 
-async def _profile_to_out(user: User, profile: StudentProfile | None, db: AsyncSession) -> ProfileOut:
+async def _profile_to_out(
+    user: User, profile: StudentProfile | None, db: AsyncSession
+) -> ProfileOut:
     has_photo = await db.scalar(
         select(ProfilePhoto.id).where(ProfilePhoto.user_id == user.id)
     )

@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class PaymentMethod(str, Enum):
+class PaymentMethod(StrEnum):
     MPAISA = "mpaisa"
     MYCASH = "mycash"
     BANK_TRANSFER = "bank_transfer"
 
 
-class PaymentStatus(str, Enum):
+class PaymentStatus(StrEnum):
     INITIATED = "initiated"
     PENDING = "pending"
     CONFIRMED = "confirmed"
@@ -35,7 +36,7 @@ class InitiateResponse(BaseModel):
     gateway_reference: str
     redirect_url: str | None = None
     status: PaymentStatus = PaymentStatus.INITIATED
-    extra: dict = Field(default_factory=dict)
+    extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class CallbackResult(BaseModel):
@@ -43,7 +44,7 @@ class CallbackResult(BaseModel):
     gateway_reference: str
     status: PaymentStatus
     amount_cents: int
-    raw_payload: dict = Field(default_factory=dict)
+    raw_payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class PaymentAdapter(ABC):
@@ -56,7 +57,7 @@ class PaymentAdapter(ABC):
         """Start a payment. Returns redirect URL for the user."""
 
     @abstractmethod
-    def verify_callback(self, payload: dict, signature: str | None) -> CallbackResult:
+    def verify_callback(self, payload: dict[str, Any], signature: str | None) -> CallbackResult:
         """Validate a callback payload and its HMAC signature.
         Raises ValueError if signature mismatches or payload is malformed.
         """

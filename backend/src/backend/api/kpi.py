@@ -142,7 +142,7 @@ def _resolve_period(
 async def _latest_value(
     db: AsyncSession, code: str, period: Period, source: str = "auto"
 ) -> KpiValue | None:
-    return await db.scalar(
+    value: KpiValue | None = await db.scalar(
         select(KpiValue)
         .where(
             KpiValue.kpi_code == code,
@@ -155,10 +155,14 @@ async def _latest_value(
         )
         .order_by(KpiValue.recorded_at.desc())
     )
+    return value
 
 
 async def _definition(db: AsyncSession, code: str) -> KpiDefinition | None:
-    return await db.scalar(select(KpiDefinition).where(KpiDefinition.code == code))
+    defn: KpiDefinition | None = await db.scalar(
+        select(KpiDefinition).where(KpiDefinition.code == code)
+    )
+    return defn
 
 
 async def _build_cards(

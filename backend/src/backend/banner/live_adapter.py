@@ -6,6 +6,7 @@ sanitisation of all inbound data.
 
 import logging
 import time
+from typing import Any
 
 import httpx
 
@@ -80,7 +81,7 @@ class LiveBannerClient(BannerClient):
     def _record_success(self) -> None:
         self._failure_count = 0
 
-    async def _request(self, method: str, path: str, **kwargs: object) -> httpx.Response:
+    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         self._check_circuit()
         try:
             async with httpx.AsyncClient(

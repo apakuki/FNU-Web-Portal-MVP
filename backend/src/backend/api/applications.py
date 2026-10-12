@@ -2,6 +2,7 @@ import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from pydantic import BaseModel, EmailStr, Field
@@ -105,7 +106,7 @@ class ApplicationDetailResponse(BaseModel):
     application_number: str
     applicant_email: str
     applicant_phone: str | None
-    payload: dict
+    payload: dict[str, Any]
     status: str
     status_reason: str | None
     is_conditional: bool

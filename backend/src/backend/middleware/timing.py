@@ -9,7 +9,7 @@ on-demand client-side inspection.
 import logging
 import time
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -17,7 +17,7 @@ logger = logging.getLogger("fnu.timing")
 
 
 class ResponseTimeMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start = time.perf_counter()
         response: Response = await call_next(request)
         elapsed_ms = (time.perf_counter() - start) * 1000.0

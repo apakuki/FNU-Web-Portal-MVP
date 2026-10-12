@@ -2,8 +2,10 @@ import asyncio
 import json
 from decimal import Decimal
 from pathlib import Path
+from typing import TypedDict
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.auth import hash_password
 from src.backend.db.models import (
@@ -20,7 +22,15 @@ TEMPLATES_SEED_PATH = (
 )
 KPI_SEED_PATH = Path(__file__).resolve().parents[2] / "seed" / "kpi_definitions.json"
 
-SEED_USERS = [
+class SeedUser(TypedDict):
+    email: str
+    full_name: str
+    role: str
+    password: str
+    banner_id: str | None
+
+
+SEED_USERS: list[SeedUser] = [
     {
         "email": "admin@fnu.ac.fj",
         "full_name": "System Administrator",
@@ -80,7 +90,7 @@ SEED_USERS = [
 ]
 
 
-async def seed_users(session) -> None:
+async def seed_users(session: AsyncSession) -> None:
     for user_data in SEED_USERS:
         result = await session.execute(
             select(User).where(User.email == user_data["email"])
@@ -100,7 +110,7 @@ async def seed_users(session) -> None:
         print(f"  created: {user_data['email']} ({user_data['role']})")
 
 
-async def seed_chatbot_faq(session) -> None:
+async def seed_chatbot_faq(session: AsyncSession) -> None:
     if not FAQ_SEED_PATH.exists():
         print(f"  skipped FAQ seed (missing file: {FAQ_SEED_PATH})")
         return
@@ -125,7 +135,7 @@ async def seed_chatbot_faq(session) -> None:
         print(f"  created FAQ: {entry['title']}")
 
 
-async def seed_notification_templates(session) -> None:
+async def seed_notification_templates(session: AsyncSession) -> None:
     if not TEMPLATES_SEED_PATH.exists():
         print(f"  skipped templates seed (missing file: {TEMPLATES_SEED_PATH})")
         return
@@ -151,7 +161,7 @@ async def seed_notification_templates(session) -> None:
         print(f"  created template: {entry['code']}")
 
 
-async def seed_kpi_definitions(session) -> None:
+async def seed_kpi_definitions(session: AsyncSession) -> None:
     if not KPI_SEED_PATH.exists():
         print(f"  skipped KPI seed (missing file: {KPI_SEED_PATH})")
         return

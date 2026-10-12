@@ -32,7 +32,7 @@ from src.backend.db.session import async_session_factory
 logger = logging.getLogger(__name__)
 
 
-class _SafeDict(dict):
+class _SafeDict(dict[str, Any]):
     """str.format_map with `{missing}` -> empty string instead of KeyError.
 
     Prevents a half-renamed template from crashing notification dispatch.
@@ -119,7 +119,8 @@ async def _send_sms(*, body: str, to_phone: str) -> str:
         )
         resp.raise_for_status()
         try:
-            return resp.json().get("id", "ok")
+            message_id: str = resp.json().get("id", "ok")
+            return message_id
         except ValueError:
             return "ok"
 

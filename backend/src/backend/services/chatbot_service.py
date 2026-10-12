@@ -14,6 +14,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 from sqlalchemy import select
@@ -163,10 +164,10 @@ class StudentContext:
 def compose_messages(
     *,
     user_message: str,
-    history: list[dict],
+    history: list[dict[str, Any]],
     faqs: list[RetrievedFaq],
     student: StudentContext | None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Return the full message list for the OpenRouter chat completion call."""
     system_parts = [SYSTEM_PROMPT_BASE]
 
@@ -198,7 +199,7 @@ def compose_messages(
             f"- Currently registered courses: {courses}"
         )
 
-    messages: list[dict] = [{"role": "system", "content": "\n\n".join(system_parts)}]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
 
     # Trim history to last N turns (each turn = user + assistant, so 2N messages).
     max_history_messages = settings.chatbot_max_history_turns * 2
@@ -225,7 +226,7 @@ class ChatbotError(Exception):
     """Raised when the upstream LLM call fails."""
 
 
-async def call_openrouter(messages: list[dict], *, timeout_seconds: float = 30.0) -> str:
+async def call_openrouter(messages: list[dict[str, Any]], *, timeout_seconds: float = 30.0) -> str:
     if not settings.openrouter_api_key:
         raise ChatbotError("OPENROUTER_API_KEY is not configured")
 
@@ -257,7 +258,8 @@ async def call_openrouter(messages: list[dict], *, timeout_seconds: float = 30.0
 
     data = response.json()
     try:
-        return data["choices"][0]["message"]["content"].strip()
+        content: str = data["choices"][0]["message"]["content"].strip()
+        return content
     except (KeyError, IndexError, AttributeError) as exc:
         raise ChatbotError("LLM response missing content") from exc
 

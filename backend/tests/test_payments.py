@@ -7,12 +7,12 @@ from datetime import date
 
 import pytest
 
+from src.backend.payments.bank_transfer_adapter import BankTransferAdapter
 from src.backend.payments.base import (
     InitiateRequest,
     PaymentMethod,
     PaymentStatus,
 )
-from src.backend.payments.bank_transfer_adapter import BankTransferAdapter
 from src.backend.payments.plan_engine import (
     apply_payment_to_schedule,
     generate_plan_schedule,
@@ -25,7 +25,6 @@ from src.backend.payments.signature import (
     verify_signature,
 )
 from src.backend.payments.stub_adapter import STUB_SECRET, StubPaymentAdapter
-
 
 # ---------- signature ----------
 

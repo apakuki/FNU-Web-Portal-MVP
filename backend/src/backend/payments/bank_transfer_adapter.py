@@ -8,6 +8,7 @@ manually via the `/api/payments/bank-confirm` endpoint.
 from __future__ import annotations
 
 import secrets as pysecrets
+from typing import Any
 
 from src.backend.payments.base import (
     CallbackResult,
@@ -49,7 +50,7 @@ class BankTransferAdapter(PaymentAdapter):
             },
         )
 
-    def verify_callback(self, payload: dict, signature: str | None) -> CallbackResult:
+    def verify_callback(self, payload: dict[str, Any], signature: str | None) -> CallbackResult:
         raise NotImplementedError(
             "Bank transfer has no automated callback — use POST /api/payments/bank-confirm"
         )

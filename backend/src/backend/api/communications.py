@@ -57,7 +57,9 @@ class TemplateUpsert(BaseModel):
 
 class BatchSendRequest(BaseModel):
     template_code: str = Field(min_length=1)
-    role: str | None = Field(default="student", pattern=r"^(student|staff|lecturer|finance|manager|vc|admin)$")
+    role: str | None = Field(
+        default="student", pattern=r"^(student|staff|lecturer|finance|manager|vc|admin)$"
+    )
     banner_id_prefix: str | None = Field(default=None, max_length=10)
     variables: dict[str, Any] = Field(default_factory=dict)
     dry_run: bool = False
@@ -317,7 +319,7 @@ async def list_notifications(
 async def notification_stats(
     _admin: User = Depends(require_role("admin", "staff")),
     db: AsyncSession = Depends(get_session),
-) -> dict:
+) -> dict[str, Any]:
     since = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     totals = (
         await db.execute(

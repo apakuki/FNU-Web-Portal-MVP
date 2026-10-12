@@ -9,9 +9,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from typing import Any
 
 
-def _canonical_payload(payload: dict) -> str:
+def _canonical_payload(payload: dict[str, Any]) -> str:
     """Produce a deterministic string from a payload dict for signing."""
     parts: list[str] = []
     for key in sorted(payload.keys()):
@@ -28,7 +29,7 @@ def _canonical_payload(payload: dict) -> str:
     return "&".join(parts)
 
 
-def sign_payload(payload: dict, secret: str) -> str:
+def sign_payload(payload: dict[str, Any], secret: str) -> str:
     """Return the lowercase hex HMAC-SHA256 signature for the payload."""
     if not secret:
         raise ValueError("secret is required")
@@ -40,7 +41,7 @@ def sign_payload(payload: dict, secret: str) -> str:
     ).hexdigest()
 
 
-def verify_signature(payload: dict, signature: str | None, secret: str) -> bool:
+def verify_signature(payload: dict[str, Any], signature: str | None, secret: str) -> bool:
     """Compare a signature against the computed HMAC using constant-time compare."""
     if not signature or not secret:
         return False
